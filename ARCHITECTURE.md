@@ -22,6 +22,67 @@ TTX is designed as a modular, extensible CLI tool for text-to-speech generation 
 - **transformers CLI**: Model management patterns
 - **huggingface-cli**: Hub integration
 
+## Data Modeling Philosophy 🔴 CRITICAL
+
+### Pydantic for All Models
+
+**All data structures use Pydantic models, NOT dataclasses**. This is a non-negotiable architectural decision.
+
+**Rationale**:
+1. **Validation**: Automatic validation with type checking at runtime
+2. **Serialization**: Built-in JSON serialization for registry/config persistence
+3. **Type Safety**: Runtime type checking with automatic coercion
+4. **Documentation**: Field descriptions embedded in the schema
+5. **Consistency**: Unified approach across configuration and data models
+6. **Future-proof**: Easy to add validation rules, computed fields, and serialization logic
+
+**Where Pydantic is used**:
+- ✅ `config.py` - `TTXConfig` (extends `pydantic-settings.BaseSettings`)
+- ✅ `models/types.py` - `ModelInfo`, `InstalledModel`
+- Future: API request/response models
+- Future: Generation parameters and audio settings
+- Future: Voice profiles and embeddings metadata
+
+**Example Pattern**:
+```python
+from pydantic import BaseModel, Field, computed_field
+from typing import Optional
+
+class ModelInfo(BaseModel):
+    """Model information with automatic validation."""
+    
+    # Required fields with validation
+    model_id: str = Field(..., description="Full model ID (author/name)")
+    downloads: int = Field(default=0, ge=0, description="Download count")
+    
+    # Optional fields with constraints
+    size_bytes: Optional[int] = Field(None, ge=0, description="Model size")
+    
+    # Configuration
+    model_config = {"frozen": False}  # Allow field updates
+    
+    # Computed properties (don't store, calculate on access)
+    @computed_field  # type: ignore[misc]
+    @property
+    def size_gb(self) -> Optional[float]:
+        """Size in gigabytes (computed)."""
+        return self.size_bytes / (1024**3) if self.size_bytes else None
+    
+    # Helper methods
+    def format_size(self) -> str:
+        """Human-readable size string."""
+        if not self.size_bytes:
+            return "Unknown"
+        gb = self.size_gb
+        return f"{gb:.1f} GB" if gb and gb >= 1 else f"{self.size_bytes / 1024**2:.0f} MB"
+```
+
+**DON'T use dataclasses** for any models that need:
+- JSON serialization (registry, config files)
+- Runtime validation
+- Type coercion
+- Field constraints (min/max, regex, custom validators)
+
 ## System Architecture
 
 ### High-Level Architecture

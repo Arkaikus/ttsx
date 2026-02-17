@@ -7,26 +7,27 @@ A modern CLI tool for managing text-to-speech models and generation, inspired by
 
 ### 1.1 Project Setup
 - [x] Initialize project with uv
-- [x] Configure pyproject.toml for Python 3.14
-- [ ] Set up development dependencies (pytest, ruff, mypy)
-- [ ] Create basic CLI structure with Click or Rich
-- [ ] Set up logging infrastructure
-- [ ] Configure project structure (src layout)
+- [x] Configure pyproject.toml for Python 3.12+ (tested with 3.14)
+- [x] Set up development dependencies (pytest, ruff, mypy)
+- [x] Create basic CLI structure with Typer + Rich
+- [x] Set up logging infrastructure
+- [x] Configure project structure (src layout)
 
 ### 1.2 Model Management
-- [ ] Implement model search from HuggingFace Hub
-  - [ ] Filter by pipeline_tag=text-to-speech
-  - [ ] Filter by library=pytorch
-  - [ ] Display model metadata (size, language, license)
-- [ ] Implement model download/caching
-  - [ ] Use HuggingFace Hub API
-  - [ ] Local cache management (~/.ttx/models/)
-  - [ ] Verify model integrity
-- [ ] List installed models command
-- [ ] Remove/clean models command
-- [ ] Model update/upgrade functionality
+- [x] Implement model search from HuggingFace Hub
+  - [x] Filter by pipeline_tag=text-to-speech
+  - [x] Filter by library=pytorch
+  - [x] Display model metadata (size, downloads, likes, modified date)
+- [x] Implement model download/caching
+  - [x] Use HuggingFace Hub API
+  - [x] Local cache management (~/.ttx/models/)
+  - [x] Model registry with JSON persistence
+- [x] List installed models command
+- [x] Remove/clean models command
+- [x] Cache management with LRU eviction
+- [ ] Model update/upgrade functionality (Future)
 
-### 1.3 Basic TTS Generation
+### 1.3 Basic TTS Generation ⚠️ IN PROGRESS
 - [ ] Implement text-to-speech generation
   - [ ] Support for popular models (Qwen3-TTS, MOSS-TTS, etc.)
   - [ ] WAV file output
@@ -40,31 +41,43 @@ A modern CLI tool for managing text-to-speech models and generation, inspired by
   - [ ] Auto-naming with timestamps
   - [ ] Directory output for batch processing
 
+**Note**: Model management infrastructure is complete. Generation engine is next.
+
 ### 1.4 CLI Commands (MVP)
 ```bash
-ttx list                        # List available models on HF
-ttx install <model-name>        # Download and cache model
-ttx models                      # Show installed models
-ttx generate "text" -m model    # Generate speech from text
-ttx remove <model-name>         # Remove cached model
-ttx info <model-name>           # Show model details
-ttx hw                          # Show hardware info (GPU, VRAM, CUDA)
+ttx search [query]              # ✅ Search/list models on HF (with size info)
+ttx install <model-name>        # ✅ Download and cache model
+ttx models                      # ✅ Show installed models (with cache stats)
+ttx generate "text" -m model    # ⏳ Generate speech from text (TODO)
+ttx remove <model-name>         # ✅ Remove cached model
+ttx info <model-name>           # ✅ Show model details (with size)
+ttx hw                          # ✅ Show hardware info (single unified table)
+ttx version                     # ✅ Show ttx version
 ```
 
-### 1.5 Hardware Detection
-- [ ] Implement hardware information command
-  - [ ] Detect CUDA availability and version
-  - [ ] Show GPU model and count
-  - [ ] Display total and available VRAM
-  - [ ] Show CPU info (cores, model)
-  - [ ] Display system RAM
-  - [ ] Detect MPS (Apple Silicon) support
-  - [ ] Show PyTorch version and build info
-  - [ ] Recommend suitable models based on hardware
-- [ ] Hardware-based model filtering
+**Implemented (7/8 commands)**:
+- ✅ CLI refactored into `commands/` folder for scalability
+- ✅ All models use Pydantic for validation
+- ✅ Beautiful Rich tables with size information
+- ✅ Hardware detection with single unified table
+- ⏳ TTS generation command pending
+
+### 1.5 Hardware Detection ✅ COMPLETE
+- [x] Implement hardware information command
+  - [x] Detect CUDA availability and version
+  - [x] Show GPU model and count
+  - [x] Display total and available VRAM
+  - [x] Show CPU info (cores, model)
+  - [x] Display system RAM
+  - [x] Detect MPS (Apple Silicon) support
+  - [x] Show PyTorch version and build info
+  - [x] Recommend suitable models based on hardware
+  - [x] Single unified table (improved UX)
+  - [x] JSON output option for scripting
+- [ ] Hardware-based model filtering (Future enhancement)
   - [ ] Mark models that won't fit in VRAM
   - [ ] Suggest quantized versions for limited hardware
-  - [ ] Auto-select device (cuda/mps/cpu)
+  - [x] Auto-select device (cuda/mps/cpu) - implemented in config
 
 ## Phase 2: Advanced Features
 

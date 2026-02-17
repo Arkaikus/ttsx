@@ -59,6 +59,13 @@ class HuggingFaceHub:
             results = []
             for model in models:
                 try:
+                    # Try to get size from siblings (model files)
+                    size_bytes = None
+                    if hasattr(model, "siblings") and model.siblings:
+                        size_bytes = sum(
+                            getattr(sibling, "size", 0) or 0 for sibling in model.siblings
+                        )
+                    
                     results.append(
                         ModelInfo(
                             model_id=model.id,
@@ -70,6 +77,7 @@ class HuggingFaceHub:
                             tags=model.tags or [],
                             pipeline_tag=model.pipeline_tag or "text-to-speech",
                             library_name=getattr(model, "library_name", None),
+                            size_bytes=size_bytes if size_bytes else None,
                         )
                     )
                 except Exception as e:
@@ -100,6 +108,13 @@ class HuggingFaceHub:
         try:
             model = self.api.model_info(model_id)
 
+            # Get size from siblings
+            size_bytes = None
+            if hasattr(model, "siblings") and model.siblings:
+                size_bytes = sum(
+                    getattr(sibling, "size", 0) or 0 for sibling in model.siblings
+                )
+
             return ModelInfo(
                 model_id=model.id,
                 author=model.author or model.id.split("/")[0],
@@ -110,6 +125,7 @@ class HuggingFaceHub:
                 tags=model.tags or [],
                 pipeline_tag=model.pipeline_tag or "text-to-speech",
                 library_name=getattr(model, "library_name", None),
+                size_bytes=size_bytes if size_bytes else None,
             )
 
         except RepositoryNotFoundError as e:

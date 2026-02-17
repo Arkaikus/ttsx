@@ -120,6 +120,44 @@ ttx/
 - **Constants**: `UPPER_SNAKE_CASE`
 - **Private members**: `_leading_underscore`
 
+### Pydantic Usage 🔴 IMPORTANT
+
+**All data models MUST use Pydantic**, not dataclasses. This ensures:
+- Automatic validation
+- JSON serialization/deserialization
+- Type coercion and conversion
+- Consistent API across the codebase
+
+**Where to use Pydantic**:
+- ✅ Configuration (`config.py`) - uses `pydantic-settings`
+- ✅ Model metadata (`models/types.py`) - `ModelInfo`, `InstalledModel`
+- ✅ API responses and data structures
+- ✅ Any data that needs validation or serialization
+
+**Example**:
+```python
+from pydantic import BaseModel, Field, computed_field
+
+class ModelInfo(BaseModel):
+    """Model information from HuggingFace."""
+    
+    model_id: str = Field(..., description="Full model ID")
+    downloads: int = Field(default=0, ge=0)
+    size_bytes: Optional[int] = Field(None, ge=0)
+    
+    model_config = {"frozen": False}
+    
+    @computed_field  # type: ignore[misc]
+    @property
+    def size_gb(self) -> Optional[float]:
+        """Computed property for size in GB."""
+        if self.size_bytes:
+            return self.size_bytes / (1024**3)
+        return None
+```
+
+**DON'T use dataclasses** for models that need validation or JSON serialization.
+
 ### Type Hints Example
 ```python
 from pathlib import Path
