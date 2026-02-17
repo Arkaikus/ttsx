@@ -458,9 +458,11 @@ class CacheManager:
 - Configurable max size
 - Atomic operations (temp files → rename)
 
-## Hardware Detection
+## Hardware Detection and Compatibility
 
 ### Hardware Module (`hardware.py`)
+
+**Current Implementation**: Detects system hardware capabilities
 
 **Purpose**: Provide comprehensive hardware information to help users understand their system capabilities and choose appropriate models.
 
@@ -645,7 +647,7 @@ def hw():
             console.print("  ℹ Consider using quantized models for better fit")
 ```
 
-**Dependencies to Add**:
+**Dependencies**:
 ```toml
 dependencies = [
     # ... existing
@@ -653,6 +655,272 @@ dependencies = [
     "py-cpuinfo>=9.0.0",  # Detailed CPU information
 ]
 ```
+
+### Hardware Requirements Module (`hardware_requirements.py`)
+
+**Purpose**: Calculate model hardware requirements and compatibility.
+
+**VRAM Overhead Calculation**:
+
+Models need more VRAM than their file size due to:
+- Activation tensors during inference
+- KV cache for attention mechanisms  
+- Temporary buffers and intermediate results
+- Framework overhead
+
+**Overhead Multipliers** (based on precision):
+```python
+PRECISION_MULTIPLIERS = {
+    "fp32": 1.5,  # Full precision (32-bit floats)
+    "fp16": 1.2,  # Half precision (16-bit floats) - RECOMMENDED
+    "int8": 1.1,  # Quantized (8-bit integers)
+}
+```
+
+**Example Calculations**:
+| Model Size | Precision | Overhead | Required VRAM | Safety Buffer (20%) | Total |
+|------------|-----------|----------|---------------|---------------------|-------|
+| 1.7 GB     | FP16      | 1.2x     | 2.04 GB       | +0.41 GB           | 2.45 GB |
+| 3.4 GB     | FP16      | 1.2x     | 4.08 GB       | +0.82 GB           | 4.90 GB |
+| 7.0 GB     | FP16      | 1.2x     | 8.40 GB       | +1.68 GB           | 10.08 GB |
+
+**Compatibility Status Enum**:
+```python
+from enum import Enum
+
+class CompatibilityStatus(str, Enum):
+    """Model compatibility with current hardware."""
+    
+    FITS = "fits"          # Green: Model < 70% of available VRAM
+    TIGHT = "tight"        # Yellow: Model 70-95% of available VRAM
+    TOO_LARGE = "too_large"  # Red: Model > 95% of available VRAM
+    UNKNOWN = "unknown"    # Gray: Model size not available
+```
+
+**Implementation**:
+```python
+from dataclasses import dataclass
+from typing import Literal, Optional
+
+@dataclass
+class VRAMRequirement:
+    """VRAM requirements for different precisions."""
+    fp32_gb: float
+    fp16_gb: float
+    int8_gb: float
+    recommended_precision: str
+
+class HardwareRequirements:
+    """Calculate and check model hardware requirements."""
+    
+    PRECISION_MULTIPLIERS = {
+        "fp32": 1.5,
+        "fp16": 1.2,
+        "int8": 1.1,
+    }
+    
+    SAFETY_MARGIN = 0.2  # Keep 20% VRAM free
+    
+    @classmethod
+    def estimate_vram_needed(
+        cls,
+        model_size_bytes: int,
+        precision: Literal["fp32", "fp16", "int8"] = "fp16",
+        safety_margin: float = SAFETY_MARGIN,
+    ) -> float:
+        """Estimate VRAM needed for model inference.
+        
+        Args:
+            model_size_bytes: Model size on disk in bytes
+            precision: Inference precision
+            safety_margin: Extra buffer (0.2 = 20% buffer)
+        
+        Returns:
+            Estimated VRAM needed in GB
+        """
+        multiplier = cls.PRECISION_MULTIPLIERS[precision]
+        
+        # Model size in GB
+        model_gb = model_size_bytes / (1024**3)
+        
+        # Apply overhead multiplier
+        base_required = model_gb * multiplier
+        
+        # Add safety margin
+        total_required = base_required * (1 + safety_margin)
+        
+        return total_required
+    
+    @classmethod
+    def get_vram_requirements(
+        cls, model_size_bytes: int
+    ) -> VRAMRequirement:
+        """Get VRAM requirements for all precisions.
+        
+        Args:
+            model_size_bytes: Model size in bytes
+        
+        Returns:
+            VRAMRequirement with estimates for each precision
+        """
+        return VRAMRequirement(
+            fp32_gb=cls.estimate_vram_needed(model_size_bytes, "fp32"),
+            fp16_gb=cls.estimate_vram_needed(model_size_bytes, "fp16"),
+            int8_gb=cls.estimate_vram_needed(model_size_bytes, "int8"),
+            recommended_precision="fp16",
+        )
+    
+    @classmethod
+    def can_run_on_hardware(
+        cls,
+        model_size_bytes: int,
+        available_vram_gb: float,
+        precision: str = "fp16",
+    ) -> tuple[bool, str, CompatibilityStatus]:
+        """Check if model can run on current hardware.
+        
+        Args:
+            model_size_bytes: Model size in bytes
+            available_vram_gb: Available VRAM in GB
+            precision: Target precision
+        
+        Returns:
+            Tuple of (can_run, message, status)
+        """
+        required_gb = cls.estimate_vram_needed(model_size_bytes, precision)
+        usage_ratio = required_gb / available_vram_gb if available_vram_gb > 0 else 999
+        
+        # Determine status based on thresholds
+        if usage_ratio <= 0.7:
+            status = CompatibilityStatus.FITS
+            can_run = True
+            msg = f"✓ Will fit comfortably ({required_gb:.1f}GB / {available_vram_gb:.1f}GB)"
+        elif usage_ratio <= 0.95:
+            status = CompatibilityStatus.TIGHT
+            can_run = True
+            msg = f"⚠ Tight fit ({required_gb:.1f}GB / {available_vram_gb:.1f}GB) - may cause OOM"
+        else:
+            status = CompatibilityStatus.TOO_LARGE
+            can_run = False
+            msg = f"✗ Too large ({required_gb:.1f}GB needed, {available_vram_gb:.1f}GB available)"
+        
+        return can_run, msg, status
+    
+    @classmethod
+    def find_quantized_versions(
+        cls, model_id: str, hub: "HuggingFaceHub"
+    ) -> list["ModelInfo"]:
+        """Search for quantized versions of a model.
+        
+        Args:
+            model_id: Base model ID
+            hub: HuggingFace Hub client
+        
+        Returns:
+            List of quantized model variants
+        """
+        # Extract base name without org
+        base_name = model_id.split("/")[-1]
+        
+        # Common quantization patterns
+        patterns = [
+            f"{base_name}-GPTQ",
+            f"{base_name}-gptq",
+            f"{base_name}-4bit",
+            f"{base_name}-8bit",
+            f"{base_name}-AWQ",
+            f"{base_name}-awq",
+            f"{base_name}-GGUF",
+            f"{base_name}-gguf",
+            f"{base_name}-int8",
+            f"{base_name}-int4",
+        ]
+        
+        quantized = []
+        for pattern in patterns:
+            try:
+                results = hub.search_models(query=pattern, limit=5)
+                quantized.extend(results)
+            except Exception:
+                continue
+        
+        # Remove duplicates and sort by size
+        seen = set()
+        unique_quantized = []
+        for model in quantized:
+            if model.model_id not in seen:
+                seen.add(model.model_id)
+                unique_quantized.append(model)
+        
+        # Sort by size (smallest first)
+        unique_quantized.sort(key=lambda m: m.size_bytes or float('inf'))
+        
+        return unique_quantized
+```
+
+**Integration with ModelInfo**:
+```python
+class ModelInfo(BaseModel):
+    # ... existing fields ...
+    
+    @computed_field
+    @property
+    def compatibility(self) -> Optional[CompatibilityStatus]:
+        """Compute compatibility with current hardware."""
+        if not self.size_bytes:
+            return CompatibilityStatus.UNKNOWN
+        
+        from ttx.hardware import HardwareDetector
+        from ttx.hardware_requirements import HardwareRequirements
+        
+        detector = HardwareDetector()
+        info = detector.detect()
+        
+        # CPU-only systems can run anything (just slower)
+        if not info.cuda_available or not info.gpus:
+            return None
+        
+        vram_gb = info.gpus[0].memory.available_gb
+        _, _, status = HardwareRequirements.can_run_on_hardware(
+            self.size_bytes, vram_gb
+        )
+        
+        return status
+    
+    def get_hardware_warning(self) -> Optional[str]:
+        """Get human-readable hardware warning if applicable."""
+        if self.compatibility == CompatibilityStatus.TOO_LARGE:
+            return (
+                f"⚠ This model requires more VRAM than available. "
+                f"Consider using a quantized version or running on CPU."
+            )
+        elif self.compatibility == CompatibilityStatus.TIGHT:
+            return (
+                f"⚠ This model may be tight. Close other GPU applications "
+                f"or use FP16 precision."
+            )
+        return None
+```
+
+**Special Cases**:
+
+1. **CPU-Only Systems**: 
+   - Return `None` for compatibility (no VRAM constraints)
+   - Show "Running on CPU - will be slower" message
+
+2. **MPS (Apple Silicon)**:
+   - Unified memory architecture
+   - Check against RAM instead of VRAM
+   - Different overhead characteristics
+
+3. **Multiple GPUs**:
+   - Use GPU with most available VRAM
+   - Allow user to specify: `--device cuda:1`
+
+4. **Unknown Model Size**:
+   - Return `CompatibilityStatus.UNKNOWN`
+   - Don't filter out of search results
+   - Warn user that size check couldn't be performed
 
 ## Cross-Cutting Concerns
 

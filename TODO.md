@@ -126,10 +126,79 @@ ttx version                     # ✅ Show ttx version
   - [x] Recommend suitable models based on hardware
   - [x] Single unified table (improved UX)
   - [x] JSON output option for scripting
-- [ ] Hardware-based model filtering (Future enhancement)
-  - [ ] Mark models that won't fit in VRAM
-  - [ ] Suggest quantized versions for limited hardware
-  - [x] Auto-select device (cuda/mps/cpu) - implemented in config
+
+### 1.6 Hardware-Based Model Filtering ✅ COMPLETED
+**Goal**: Prevent users from downloading models that won't fit in VRAM
+
+#### Phase 1: Core Infrastructure ✅ DONE
+- [x] Create `HardwareRequirements` class (`src/ttx/hardware_requirements.py`)
+  - [x] `estimate_vram()` - Calculate VRAM with overhead
+    - FP32: 1.5x multiplier (full precision)
+    - FP16: 1.2x multiplier (recommended)
+    - INT8: 1.15x multiplier (quantized)
+    - INT4: 1.1x multiplier (heavily quantized)
+  - [x] `check_compatibility()` - Check model compatibility
+  - [x] `detect_precision()` - Detect quantization from model ID/tags
+- [x] Add `CompatibilityStatus` enum (`hardware_requirements.py`)
+  - [x] FITS (green): Model fits comfortably
+  - [x] TIGHT (yellow): < 20% VRAM headroom
+  - [x] TOO_LARGE (red): Won't fit in VRAM
+  - [x] CPU_ONLY (cyan): No GPU available
+  - [x] UNKNOWN (gray): Can't determine
+- [x] Add `Precision` enum for quantization levels
+  - [x] FP32, FP16, BF16, INT8, INT4, UNKNOWN
+
+#### Phase 2: UI Integration ✅ DONE
+- [x] Update search command (`commands/search.py`)
+  - [x] Add "HW" column to table with compatibility indicators
+  - [x] Show user's hardware in header (GPU model + VRAM)
+  - [x] Add legend (✓/⚠/✗/ℹ/? meanings)
+  - [x] Add `--compatible` flag (show only compatible models)
+  - [x] Async compatibility checking with live updates
+- [x] Update info command (`commands/models.py`)
+  - [x] Add "Hardware Compatibility" panel
+  - [x] Show estimated VRAM usage with precision
+  - [x] Display exact amount model exceeds VRAM
+  - [x] Suggest quantized alternatives automatically
+- [ ] Update install command (`commands/models.py`)  # Future
+  - [ ] Pre-install hardware check
+  - [ ] Confirmation prompt if incompatible
+  - [ ] Options: 1) Install anyway 2) Find quantized 3) Choose smaller 4) Cancel
+
+#### Phase 3: Quantization Detection ✅ DONE
+- [x] Implement quantized model pattern matching
+  - [x] Detect GPTQ models (`-gptq`, `-4bit`)
+  - [x] Detect GGUF models (`-gguf`, `-Q4`, `-Q8`)
+  - [x] Detect AWQ models (`-awq`)
+  - [x] Detect INT8/INT4 models (`int8`, `int4`, `8bit`, `4bit`)
+  - [x] Detect FP16/BF16 variants
+- [x] `find_quantized_versions()` function
+  - [x] Pattern-based suggestions for quantized variants
+  - [x] Suggests INT8, INT4, FP16 versions
+  - [x] Shows top 3 suggestions
+- [x] Auto-suggest during info if model too large
+
+#### Phase 4: Configuration (0.5 days)
+- [ ] Add hardware filtering settings to `config.py`
+  - [ ] `show_hardware_warnings` (default: true)
+  - [ ] `auto_suggest_quantized` (default: true)
+  - [ ] `default_precision` (default: "fp16")
+  - [ ] `vram_safety_margin` (default: 0.2 = 20%)
+- [ ] Support config file (`~/.ttx/config.toml`)
+- [ ] Support environment variables (`TTX_*`)
+
+#### Design Decisions
+**Warn vs Block**: Warn but allow installation (users know best)
+**Default Behavior**: Show compatibility by default (transparency)
+**Thresholds**: 70% (fits), 95% (tight), >95% (too large)
+**CPU-only**: Show all models with "slower on CPU" note
+**MPS**: Use RAM instead of VRAM for unified memory
+
+#### Success Metrics
+- [ ] Track OOM errors before/after feature
+- [ ] % of users who choose quantized alternatives
+- [ ] User satisfaction survey
+- [ ] Reduction in "model won't run" support requests
 
 ## Phase 2: Advanced Features
 

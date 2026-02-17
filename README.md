@@ -12,9 +12,15 @@
 
 ### ✅ Implemented (MVP)
 - 🔍 **Model Discovery**: Search and browse TTS models from HuggingFace
+- ⚡ **Async Operations**: Concurrent model size fetching with live-updating tables
+- 🎯 **Hardware Filtering**: Real-time VRAM compatibility checking
+  - Shows which models fit in your GPU before downloading
+  - Automatic quantization detection (FP32/FP16/INT8/INT4)
+  - Filter to show only compatible models (`--compatible`)
+  - Suggests quantized alternatives for oversized models
 - 📦 **Model Management**: Install, list, info, and remove TTS models locally
 - 💾 **Cache Management**: Automatic cache management with LRU eviction
-- 🖥️ **Hardware Detection**: Check GPU/CPU capabilities before installation
+- 🖥️ **Hardware Detection**: Check GPU/CPU capabilities
 - 🎨 **Beautiful CLI**: Rich terminal output with progress bars and tables
 
 ### 🚧 Coming Soon
@@ -33,10 +39,13 @@ uv sync
 # Check your hardware capabilities
 uv run ttx hw
 
-# Search for TTS models (sizes load in background)
+# Search for TTS models (sizes + hardware compat load in background)
 uv run ttx search "qwen tts" --limit 5
 
-# Get information about a specific model
+# Show only models compatible with your hardware
+uv run ttx search "qwen tts" --compatible
+
+# Get information about a specific model (includes hardware compatibility)
 uv run ttx info Qwen/Qwen3-TTS-12Hz-0.6B-Base
 
 # Install a model (downloads ~1-2GB)

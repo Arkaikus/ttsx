@@ -633,7 +633,130 @@ ttx models info qwen3-tts
 4. **Sensible Defaults**: Work out of the box
 5. **Documentation**: Examples for every command
 
+## Hardware Requirements and Compatibility
+
+### VRAM Estimation Guidelines
+
+When implementing hardware compatibility features, use these guidelines:
+
+**Overhead Multipliers** (conservative estimates):
+- **FP32** (32-bit floats): 1.5x model size
+- **FP16** (16-bit floats): 1.2x model size ← Recommended default
+- **INT8** (8-bit quantized): 1.1x model size
+
+**Rationale**: Models need extra VRAM for:
+- Activation tensors during forward pass
+- KV cache for attention mechanisms
+- Temporary buffers and intermediate results
+- Framework/driver overhead
+- Safety margin (20%)
+
+**Compatibility Thresholds**:
+- **Green (FITS)**: Model uses < 70% of available VRAM
+- **Yellow (TIGHT)**: Model uses 70-95% of VRAM
+- **Red (TOO_LARGE)**: Model uses > 95% of VRAM
+
+**Example**:
+```python
+# 3.4 GB model with FP16 precision
+model_size = 3.4 * 1024**3  # bytes
+overhead = 1.2
+safety = 1.2
+required = (model_size / 1024**3) * overhead * safety
+# = 3.4 * 1.2 * 1.2 = 4.9 GB needed
+
+# User has 4 GB VRAM available
+usage = 4.9 / 4.0 = 1.225 (122.5%)
+# Status: TOO_LARGE (red)
+```
+
+### Quantization Patterns
+
+When searching for quantized versions, look for these patterns:
+
+```python
+QUANTIZATION_PATTERNS = {
+    "gptq": ["-gptq", "-GPTQ", "-4bit", "-8bit"],
+    "gguf": ["-gguf", "-GGUF", "-Q4", "-Q8", ".gguf"],
+    "awq": ["-awq", "-AWQ"],
+    "native": ["-int8", "-int4", "-INT8", "-INT4"],
+}
+```
+
+**Model Naming Examples**:
+- `Qwen3-TTS-1.7B` → `Qwen3-TTS-1.7B-GPTQ`
+- `MOSS-TTS` → `MOSS-TTS-int8`
+- `model-7B` → `model-7B-GGUF-Q4`
+
+### Hardware-Aware Command Design
+
+When implementing commands that interact with models:
+
+1. **Always check hardware first** if model size is known
+2. **Warn, don't block** - let users make final decision
+3. **Suggest alternatives** when model won't fit
+4. **Show calculations** in verbose mode
+
+**Example Flow**:
+```python
+def install_command(model_id: str) -> None:
+    # 1. Get model info (includes size)
+    model_info = hub.get_model_info(model_id)
+    
+    # 2. Check hardware compatibility
+    if model_info.compatibility == CompatibilityStatus.TOO_LARGE:
+        # 3. Warn user
+        console.print(f"⚠ Model requires {required} GB, you have {available} GB")
+        
+        # 4. Suggest alternatives
+        quantized = find_quantized_versions(model_id)
+        if quantized:
+            console.print("Found quantized versions:")
+            for q in quantized:
+                console.print(f"  • {q.model_id} ({q.format_size()})")
+        
+        # 5. Confirm with user
+        if not typer.confirm("Install anyway (will use CPU)?"):
+            raise typer.Exit(0)
+    
+    # Proceed with installation...
+```
+
 ## Common Tasks for AI Agents
+
+### Task: "Implement hardware compatibility checking"
+
+1. **Create hardware requirements module** (`src/ttx/hardware_requirements.py`)
+   - Implement VRAM estimation with overhead multipliers
+   - Add compatibility status calculation
+   - Write unit tests for different scenarios
+
+2. **Add compatibility to ModelInfo** (`src/ttx/models/types.py`)
+   - Add `@computed_field` for `compatibility` property
+   - Implement `get_hardware_warning()` method
+   - Cache hardware detection for performance
+
+3. **Update search command** (`src/ttx/commands/search.py`)
+   - Add compatibility column to results table
+   - Show user's hardware at top
+   - Add legend explaining status indicators
+   - Implement `--compatible` and `--no-hardware-check` flags
+
+4. **Update install command** (`src/ttx/commands/models.py`)
+   - Check compatibility before download
+   - Show warning if model won't fit
+   - Offer to search for quantized versions
+   - Allow user to proceed anyway with confirmation
+
+5. **Test thoroughly**:
+   ```python
+   # Mock different hardware scenarios
+   - 2GB VRAM (entry GPU)
+   - 4GB VRAM (common laptop GPU)
+   - 8GB VRAM (mid-range GPU)
+   - 24GB VRAM (high-end GPU)
+   - CPU-only (no GPU)
+   ```
 
 ### Task: "Add support for a new model"
 1. Research model architecture and API

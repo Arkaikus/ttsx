@@ -54,19 +54,25 @@ def version() -> None:
 def search(
     query: Optional[str] = typer.Argument(None, help="Search query"),
     limit: int = typer.Option(20, "--limit", "-n", help="Maximum number of results"),
+    compatible: bool = typer.Option(
+        False,
+        "--compatible",
+        help="Show only models compatible with your hardware",
+    ),
 ) -> None:
     """Search for TTS models on HuggingFace Hub.
 
-    Model sizes are fetched concurrently in the background and displayed
-    as they become available.
+    Model sizes and hardware compatibility are fetched concurrently in the
+    background and displayed as they become available.
 
     Examples:
-        ttx search                # List popular TTS models
-        ttx search "qwen"         # Search for Qwen models
-        ttx search --limit 10     # Show only 10 results
+        ttx search                  # List popular TTS models
+        ttx search "qwen"           # Search for Qwen models
+        ttx search --limit 10       # Show only 10 results
+        ttx search --compatible     # Show only models that fit in VRAM
     """
     try:
-        search_command(query=query, limit=limit)
+        search_command(query=query, limit=limit, show_compatible=compatible)
     except Exception:
         raise typer.Exit(1)
 

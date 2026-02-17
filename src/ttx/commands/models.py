@@ -6,6 +6,7 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 
 from ttx.cache import CacheManager
+from ttx.hardware_requirements import HardwareRequirements
 from ttx.models.hub import HuggingFaceHub
 from ttx.models.registry import ModelRegistry
 from ttx.models.types import format_model_size, get_model_size
@@ -185,10 +186,12 @@ def info_command(model_id: str) -> None:
             table.add_column("Property", style="cyan")
             table.add_column("Value", style="white")
 
+            # Get size
+            size_bytes = get_model_size(model_info, fetch_accurate=True)
+            
             table.add_row("Model ID", model_info.id)
             table.add_row("Author", model_info.author or "Unknown")
-            # Fetch accurate size for info command (only 1 model, so no need for async)
-            table.add_row("Size", format_model_size(get_model_size(model_info, fetch_accurate=True)))
+            table.add_row("Size", format_model_size(size_bytes))
             table.add_row("Downloads", f"{model_info.downloads:,}" if model_info.downloads else "0")
             table.add_row("Likes", f"{model_info.likes:,}" if model_info.likes else "0")
             table.add_row(
@@ -201,6 +204,53 @@ def info_command(model_id: str) -> None:
 
             console.print()
             console.print(table)
+            
+            # Add hardware compatibility info
+            hw_req = HardwareRequirements()
+            if hw_req.hw_info.cuda_available and hw_req._available_vram_gb:
+                console.print()
+                hw_table = Table(title="Hardware Compatibility", show_header=False, box=None)
+                hw_table.add_column("Property", style="cyan")
+                hw_table.add_column("Value")
+                
+                # Show available VRAM
+                hw_table.add_row(
+                    "Your GPU",
+                    f"{hw_req.hw_info.gpus[0].name} ({hw_req._available_vram_gb:.1f} GB VRAM)"
+                )
+                
+                # Check compatibility
+                status = hw_req.check_compatibility(model_info, size_bytes)
+                estimate = hw_req.estimate_vram(model_info, size_bytes)
+                
+                if estimate:
+                    hw_table.add_row(
+                        "Estimated VRAM",
+                        f"{estimate.estimated_vram_gb:.1f} GB ({estimate.precision.value})"
+                    )
+                    hw_table.add_row(
+                        "Compatibility",
+                        hw_req.format_compatibility(status, estimate)
+                    )
+                    
+                    if not estimate.fits:
+                        # Show how much over
+                        over = estimate.estimated_vram_gb - estimate.available_vram_gb
+                        hw_table.add_row(
+                            "Exceeds by",
+                            f"[red]{over:.1f} GB[/red]"
+                        )
+                        
+                        # Suggest quantized versions
+                        suggestions = hw_req.find_quantized_versions(model_info)
+                        if suggestions:
+                            hw_table.add_row(
+                                "Try instead",
+                                "\n".join(f"[dim]• {s}[/dim]" for s in suggestions)
+                            )
+                
+                console.print(hw_table)
+            
             console.print()
             console.print(
                 f"[dim]Install with:[/dim] [bold]ttx install {model_id}[/bold]"
