@@ -33,7 +33,7 @@ uv sync
 # Check your hardware capabilities
 uv run ttx hw
 
-# Search for TTS models
+# Search for TTS models (sizes load in background)
 uv run ttx search "qwen tts" --limit 5
 
 # Get information about a specific model

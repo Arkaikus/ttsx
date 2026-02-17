@@ -8,6 +8,7 @@ from rich.table import Table
 from ttx.cache import CacheManager
 from ttx.models.hub import HuggingFaceHub
 from ttx.models.registry import ModelRegistry
+from ttx.models.types import format_model_size, get_model_size
 
 console = Console()
 
@@ -184,13 +185,17 @@ def info_command(model_id: str) -> None:
             table.add_column("Property", style="cyan")
             table.add_column("Value", style="white")
 
-            table.add_row("Model ID", model_info.model_id)
-            table.add_row("Author", model_info.author)
-            table.add_row("Size", model_info.format_size())
-            table.add_row("Downloads", f"{model_info.downloads:,}")
-            table.add_row("Likes", f"{model_info.likes:,}")
-            table.add_row("Last Modified", model_info.last_modified.strftime("%Y-%m-%d"))
-            table.add_row("Pipeline", model_info.pipeline_tag)
+            table.add_row("Model ID", model_info.id)
+            table.add_row("Author", model_info.author or "Unknown")
+            # Fetch accurate size for info command (only 1 model, so no need for async)
+            table.add_row("Size", format_model_size(get_model_size(model_info, fetch_accurate=True)))
+            table.add_row("Downloads", f"{model_info.downloads:,}" if model_info.downloads else "0")
+            table.add_row("Likes", f"{model_info.likes:,}" if model_info.likes else "0")
+            table.add_row(
+                "Last Modified",
+                model_info.last_modified.strftime("%Y-%m-%d") if model_info.last_modified else "Unknown"
+            )
+            table.add_row("Pipeline", model_info.pipeline_tag or "text-to-speech")
             if model_info.library_name:
                 table.add_row("Library", model_info.library_name)
 

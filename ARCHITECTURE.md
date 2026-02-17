@@ -24,7 +24,11 @@ TTX is designed as a modular, extensible CLI tool for text-to-speech generation 
 
 ## Data Modeling Philosophy 🔴 CRITICAL
 
-### Pydantic for All Models
+### Use Upstream Types When Available
+
+**Prefer upstream types over duplication**. Only create our own models for domain-specific data.
+
+### Pydantic for Domain-Specific Models
 
 **All data structures use Pydantic models, NOT dataclasses**. This is a non-negotiable architectural decision.
 
@@ -886,7 +890,69 @@ ttx/
 
 ## Design Patterns
 
-### 1. Adapter Pattern (Model Compatibility)
+### 1. Async/Await Pattern
+
+**All I/O-bound operations use asyncio for concurrency and responsiveness.**
+
+#### Implementation
+
+```python
+# 1. Async helper functions (models/types.py)
+async def get_model_size_async(model: ModelInfo) -> Optional[int]:
+    """Non-blocking size fetch using thread pool executor."""
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(
+        None, lambda: get_model_size(model, fetch_accurate=True)
+    )
+
+# 2. Async command implementation (commands/search.py)
+async def search_command_async(query: Optional[str], limit: int) -> None:
+    """Async search with concurrent size fetching."""
+    # Fetch models list (fast)
+    models = list(hub.search_models(query, limit))
+    
+    # Create table with "Loading..." for sizes
+    table = create_table_with_loading(models)
+    
+    # Fetch sizes concurrently with live updates
+    async def fetch_and_update_size(idx, model):
+        try:
+            size = await get_model_size_async(model)
+            return (idx, format_model_size(size))
+        except Exception:
+            return (idx, "[red]Error[/red]")
+    
+    fetch_tasks = [fetch_and_update_size(i, m) for i, m in enumerate(models)]
+    
+    # Update table as each size completes
+    with Live(table, refresh_per_second=4) as live:
+        for coro in asyncio.as_completed(fetch_tasks):
+            idx, size_str = await coro
+            update_table_row(table, idx, size_str)
+            live.update(table)
+
+# 3. Sync wrapper for Typer (commands/search.py)
+def search_command(query: Optional[str] = None, limit: int = 20) -> None:
+    """Sync wrapper that runs async implementation."""
+    asyncio.run(search_command_async(query=query, limit=limit))
+```
+
+#### Performance
+
+- ✅ **10 models**: ~4.5 seconds total
+- ✅ **5 models**: ~4.2 seconds total
+- ✅ **2 models**: ~4.0 seconds total
+- All operations run concurrently using `asyncio.as_completed()`
+
+#### Benefits
+
+1. **Non-blocking I/O**: Main thread stays responsive
+2. **Concurrent fetching**: N API calls in parallel
+3. **Progressive updates**: Results appear as they arrive
+4. **Better UX**: No waiting for all data before showing anything
+5. **Scalable**: Handles 10+ models efficiently
+
+### 2. Adapter Pattern (Model Compatibility)
 
 Different TTS models have different APIs. Use adapters to provide uniform interface.
 
@@ -934,7 +1000,7 @@ def get_adapter(model_id: str) -> TTSAdapter:
         raise ValueError(f"Unknown model family: {model_id}")
 ```
 
-### 2. Repository Pattern (Data Access)
+### 3. Repository Pattern (Data Access)
 
 Separate data access from business logic.
 
@@ -960,7 +1026,7 @@ class ModelRepository:
         ...
 ```
 
-### 3. Builder Pattern (Complex Object Construction)
+### 4. Builder Pattern (Complex Object Construction)
 
 For building generation requests with many options.
 
@@ -1000,7 +1066,7 @@ class GenerationRequest:
         }
 ```
 
-### 4. Strategy Pattern (Algorithm Selection)
+### 5. Strategy Pattern (Algorithm Selection)
 
 Different generation strategies for different use cases.
 

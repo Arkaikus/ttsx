@@ -6,10 +6,10 @@ from pathlib import Path
 from typing import Optional
 
 from huggingface_hub import HfApi, hf_hub_download, snapshot_download
+from huggingface_hub.hf_api import ModelInfo
 from huggingface_hub.utils import RepositoryNotFoundError
 
 from ttx.config import get_config
-from ttx.models.types import ModelInfo
 from ttx.utils.exceptions import ModelDownloadError, ModelNotFoundError
 
 logger = logging.getLogger(__name__)
@@ -32,61 +32,28 @@ class HuggingFaceHub:
         self,
         query: Optional[str] = None,
         limit: int = 20,
-        sort: str = "modified",
     ) -> list[ModelInfo]:
         """Search for TTS models on HuggingFace Hub.
 
         Args:
             query: Optional search query.
             limit: Maximum number of results.
-            sort: Sort order (modified, likes, downloads).
 
         Returns:
-            List of ModelInfo objects.
+            List of ModelInfo objects from HuggingFace Hub.
         """
-        logger.debug(f"Searching for TTS models: query={query}, limit={limit}, sort={sort}")
+        logger.debug(f"Searching for TTS models: query={query}, limit={limit}")
 
         try:
             # Search for TTS models
             # The newer API is simplified
             search_query = query or "text-to-speech pytorch"
             
-            models = self.api.list_models(
+            return self.api.list_models(
                 search=search_query,
                 limit=limit,
+                full=True,  # Get full model info including siblings (file sizes)
             )
-
-            results = []
-            for model in models:
-                try:
-                    # Try to get size from siblings (model files)
-                    size_bytes = None
-                    if hasattr(model, "siblings") and model.siblings:
-                        size_bytes = sum(
-                            getattr(sibling, "size", 0) or 0 for sibling in model.siblings
-                        )
-                    
-                    results.append(
-                        ModelInfo(
-                            model_id=model.id,
-                            author=model.author or model.id.split("/")[0],
-                            name=model.id.split("/")[-1],
-                            downloads=model.downloads or 0,
-                            likes=model.likes or 0,
-                            last_modified=model.last_modified or datetime.now(),
-                            tags=model.tags or [],
-                            pipeline_tag=model.pipeline_tag or "text-to-speech",
-                            library_name=getattr(model, "library_name", None),
-                            size_bytes=size_bytes if size_bytes else None,
-                        )
-                    )
-                except Exception as e:
-                    logger.warning(f"Failed to parse model {model.id}: {e}")
-                    continue
-
-            logger.info(f"Found {len(results)} TTS models")
-            return results
-
         except Exception as e:
             logger.error(f"Failed to search models: {e}")
             raise ModelNotFoundError(f"Search query: {query}") from e
@@ -106,27 +73,8 @@ class HuggingFaceHub:
         logger.debug(f"Getting info for model: {model_id}")
 
         try:
-            model = self.api.model_info(model_id)
-
-            # Get size from siblings
-            size_bytes = None
-            if hasattr(model, "siblings") and model.siblings:
-                size_bytes = sum(
-                    getattr(sibling, "size", 0) or 0 for sibling in model.siblings
-                )
-
-            return ModelInfo(
-                model_id=model.id,
-                author=model.author or model.id.split("/")[0],
-                name=model.id.split("/")[-1],
-                downloads=model.downloads or 0,
-                likes=model.likes or 0,
-                last_modified=model.last_modified or datetime.now(),
-                tags=model.tags or [],
-                pipeline_tag=model.pipeline_tag or "text-to-speech",
-                library_name=getattr(model, "library_name", None),
-                size_bytes=size_bytes if size_bytes else None,
-            )
+            # Return ModelInfo directly from HuggingFace
+            return self.api.model_info(model_id)
 
         except RepositoryNotFoundError as e:
             logger.error(f"Model not found: {model_id}")

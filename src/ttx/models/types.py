@@ -1,74 +1,142 @@
-"""Type definitions for models using Pydantic."""
+"""Type definitions for models.
 
+This module uses huggingface_hub.hf_api.ModelInfo directly instead of duplicating it.
+We only define helper functions and our own domain-specific models.
+"""
+
+import asyncio
+import logging
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
+from huggingface_hub import get_paths_info
+from huggingface_hub.hf_api import ModelInfo  # Use upstream type
 from pydantic import BaseModel, Field, computed_field
 
+logger = logging.getLogger(__name__)
 
-class ModelInfo(BaseModel):
-    """Information about a TTS model from HuggingFace Hub.
+
+# Export ModelInfo from huggingface_hub for convenience
+__all__ = [
+    "ModelInfo",
+    "InstalledModel",
+    "get_model_size",
+    "get_model_size_async",
+    "format_model_size",
+]
+
+
+def get_model_size(model: ModelInfo, fetch_accurate: bool = True) -> Optional[int]:
+    """Get model size in bytes from HuggingFace ModelInfo.
     
-    Uses Pydantic for validation and serialization.
+    Args:
+        model: HuggingFace ModelInfo object
+        fetch_accurate: If True, query HF API for accurate sizes (slower but accurate).
+                       If False, only use cached sibling data (fast but often None).
+        
+    Returns:
+        Total size in bytes, or None if not available
     """
-
-    model_id: str = Field(..., description="Full model ID (author/model-name)")
-    author: str = Field(..., description="Model author/organization")
-    name: str = Field(..., description="Model name without author")
-    downloads: int = Field(default=0, ge=0, description="Total downloads")
-    likes: int = Field(default=0, ge=0, description="Number of likes")
-    last_modified: datetime = Field(..., description="Last modification date")
-    tags: list[str] = Field(default_factory=list, description="Model tags")
-    pipeline_tag: str = Field(default="text-to-speech", description="Pipeline task type")
-    library_name: Optional[str] = Field(None, description="ML library (pytorch, etc)")
-    size_bytes: Optional[int] = Field(None, ge=0, description="Model size in bytes")
-    description: Optional[str] = Field(None, description="Model description")
-
-    model_config = {"frozen": False}
-
-    @computed_field  # type: ignore[misc]
-    @property
-    def full_name(self) -> str:
-        """Get the full model name (author/name)."""
-        return self.model_id
-
-    @computed_field  # type: ignore[misc]
-    @property
-    def short_name(self) -> str:
-        """Get just the model name without author."""
-        return self.name
-
-    @computed_field  # type: ignore[misc]
-    @property
-    def size_mb(self) -> Optional[float]:
-        """Get model size in megabytes."""
-        if self.size_bytes:
-            return self.size_bytes / (1024 * 1024)
-        return None
-
-    @computed_field  # type: ignore[misc]
-    @property
-    def size_gb(self) -> Optional[float]:
-        """Get model size in gigabytes."""
-        if self.size_bytes:
-            return self.size_bytes / (1024 * 1024 * 1024)
-        return None
+    # First try siblings (fast but often None for size field)
+    if hasattr(model, "siblings") and model.siblings:
+        try:
+            sizes_from_siblings = [
+                getattr(sibling, "size", 0) or 0 
+                for sibling in model.siblings
+            ]
+            if any(sizes_from_siblings):
+                total = sum(sizes_from_siblings)
+                if total > 0:
+                    return total
+        except Exception as e:
+            logger.debug(f"Failed to get size from siblings: {e}")
     
-    def format_size(self) -> str:
-        """Format size as human-readable string."""
-        if self.size_bytes is None:
-            return "Unknown"
+    # If fetch_accurate is True, query actual file sizes from HF API
+    if fetch_accurate:
+        try:
+            from huggingface_hub import HfApi
+            
+            logger.debug(f"Fetching accurate size for {model.id}")
+            
+            # Step 1: Get list of all files in the repo
+            api = HfApi()
+            all_files = api.list_repo_files(repo_id=model.id, repo_type="model")
+            
+            # Step 2: Filter for model weight files (these are the large ones)
+            model_files = [
+                f for f in all_files 
+                if f.endswith(('.safetensors', '.bin', '.pt', '.pth', '.ckpt'))
+            ]
+            
+            if not model_files:
+                logger.debug(f"No model weight files found for {model.id}")
+                return None
+            
+            # Step 3: Get accurate sizes for those files
+            paths_info = list(get_paths_info(
+                repo_id=model.id,
+                paths=model_files,
+                repo_type="model",
+            ))
+            
+            total_size = sum(info.size for info in paths_info if info.size)
+            
+            if total_size > 0:
+                logger.debug(f"Got accurate size for {model.id}: {total_size / 1024**3:.2f} GB")
+                return total_size
+                
+        except Exception as e:
+            logger.warning(f"Failed to fetch accurate size for {model.id}: {e}")
+    
+    return None
+
+
+async def get_model_size_async(model: ModelInfo) -> Optional[int]:
+    """Async version of get_model_size for concurrent fetching.
+    
+    Args:
+        model: HuggingFace ModelInfo object
         
-        gb = self.size_gb
-        if gb and gb >= 1:
-            return f"{gb:.1f} GB"
+    Returns:
+        Total size in bytes, or None if not available
+    """
+    loop = asyncio.get_event_loop()
+    # Run the blocking I/O operation in a thread pool
+    return await loop.run_in_executor(
+        None, lambda: get_model_size(model, fetch_accurate=True)
+    )
+
+
+def format_model_size(size_bytes: Optional[int]) -> str:
+    """Format model size as human-readable string.
+    
+    Args:
+        size_bytes: Size in bytes, or None
         
-        mb = self.size_mb
-        if mb and mb >= 1:
-            return f"{mb:.0f} MB"
-        
-        return f"{self.size_bytes} B"
+    Returns:
+        Formatted string like "3.4 GB", "120 MB", or "Unknown"
+    """
+    if size_bytes is None:
+        return "Unknown"
+    
+    # GB
+    gb = size_bytes / (1024**3)
+    if gb >= 1:
+        return f"{gb:.1f} GB"
+    
+    # MB
+    mb = size_bytes / (1024**2)
+    if mb >= 1:
+        return f"{mb:.0f} MB"
+    
+    # KB
+    kb = size_bytes / 1024
+    if kb >= 1:
+        return f"{kb:.0f} KB"
+    
+    # Bytes
+    return f"{size_bytes} B"
 
 
 class InstalledModel(BaseModel):

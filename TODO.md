@@ -3,6 +3,58 @@
 ## Project Overview
 A modern CLI tool for managing text-to-speech models and generation, inspired by Python's `uv` package manager design philosophy.
 
+## Phase 0: Infrastructure Improvements 🎯 HIGH PRIORITY
+
+### 0.1 Async/Await Support ✅ DONE
+**Priority**: HIGH  
+**Status**: ✅ Completed
+
+Asyncio support for concurrent operations and better UX.
+
+**What was implemented**:
+- [x] Async model size fetching with `get_model_size_async()`
+- [x] Concurrent size fetching in search command
+- [x] Live table updates with Rich Live display
+- [x] Removed `--fetch-sizes` flag - always fetch concurrently
+- [x] Background operations with progress indicators
+
+**Key Features**:
+- Fetches 5+ model sizes concurrently in ~4 seconds
+- Shows "Loading..." initially, updates as sizes arrive
+- Better user experience with progressive loading
+- No blocking operations in CLI commands
+
+**Implementation Details**:
+```python
+# Async helper in types.py
+async def get_model_size_async(model: ModelInfo) -> Optional[int]:
+    """Non-blocking size fetch using thread pool executor."""
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(
+        None, lambda: get_model_size(model, fetch_accurate=True)
+    )
+
+# Usage in search command
+async def search_command_async(query: str, limit: int):
+    models = list(hub.search_models(query, limit))
+    
+    # Fetch sizes concurrently
+    fetch_tasks = [fetch_and_update_size(i, m) for i, m in enumerate(models)]
+    
+    # Update table as each completes
+    with Live(table) as live:
+        for coro in asyncio.as_completed(fetch_tasks):
+            index, size = await coro
+            # Update table row...
+```
+
+**Next Steps for Async**:
+- [ ] Async model downloads (parallel chunk fetching)
+- [ ] Async cache operations
+- [ ] Async generation pipeline (future)
+
+---
+
 ## Phase 1: MVP Core (Foundation)
 
 ### 1.1 Project Setup

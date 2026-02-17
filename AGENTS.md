@@ -120,21 +120,172 @@ ttx/
 - **Constants**: `UPPER_SNAKE_CASE`
 - **Private members**: `_leading_underscore`
 
-### Pydantic Usage 🔴 IMPORTANT
+### Data Modeling Strategy 🔴 IMPORTANT
 
-**All data models MUST use Pydantic**, not dataclasses. This ensures:
+**Use upstream types when available**, don't duplicate them. Create Pydantic models only for our own domain-specific data.
+
+**Current Approach**:
+- ✅ **ModelInfo**: Use `huggingface_hub.hf_api.ModelInfo` directly (upstream dataclass)
+- ✅ **InstalledModel**: Our own Pydantic model for local tracking
+- ✅ **Helper Functions**: Add utility functions like `get_model_size()`, `format_model_size()`
+
+**Rationale**:
+- Avoids duplication and stays in sync with upstream changes
+- HuggingFace's ModelInfo already has all fields we need (id, author, downloads, siblings, etc.)
+- We only add our own models for domain-specific data not in upstream
+
+### Pydantic Usage (for our own models)
+
+**When creating NEW domain models, use Pydantic**. This ensures:
 - Automatic validation
 - JSON serialization/deserialization
 - Type coercion and conversion
 - Consistent API across the codebase
 
-**Where to use Pydantic**:
-- ✅ Configuration (`config.py`) - uses `pydantic-settings`
-- ✅ Model metadata (`models/types.py`) - `ModelInfo`, `InstalledModel`
-- ✅ API responses and data structures
-- ✅ Any data that needs validation or serialization
+**Where to use what**:
+- ✅ **Upstream types**: Use `huggingface_hub.hf_api.ModelInfo` for HF models
+- ✅ **Pydantic models**: Configuration (`TTXConfig`), local data (`InstalledModel`)
+- ✅ **Helper functions**: Add utilities like `get_model_size()` for upstream types
+- ❌ **Don't duplicate**: Never recreate types that exist in dependencies
 
-**Example**:
+**Model Size Fetching**:
+
+HuggingFace's `ModelInfo.siblings[].size` is often `None`, so we use `get_paths_info()` to query actual file sizes:
+
+```python
+from huggingface_hub import HfApi, get_paths_info
+
+def get_model_size(model: ModelInfo, fetch_accurate: bool = True) -> Optional[int]:
+    """Get accurate model size by querying file sizes.
+    
+    Steps:
+    1. Try siblings first (fast but often None)
+    2. If fetch_accurate=True:
+       a. List all repo files
+       b. Filter for model weights (.safetensors, .bin, .pt)
+       c. Query sizes with get_paths_info()
+       d. Sum total
+    """
+    # Fast path: check siblings
+    if model.siblings:
+        total = sum(s.size or 0 for s in model.siblings)
+        if total > 0:
+            return total
+    
+    # Accurate path: query API
+    if fetch_accurate:
+        api = HfApi()
+        all_files = api.list_repo_files(model.id, repo_type="model")
+        weight_files = [f for f in all_files 
+                       if f.endswith(('.safetensors', '.bin', '.pt', '.pth'))]
+        
+        if weight_files:
+            paths_info = list(get_paths_info(model.id, weight_files, repo_type="model"))
+            return sum(info.size for info in paths_info if info.size)
+    
+    return None
+```
+
+**Async Implementation** 🔴 NEW:
+
+All I/O operations should be async for better performance and UX:
+
+```python
+import asyncio
+from typing import List
+from rich.live import Live
+from rich.table import Table
+
+async def get_model_size_async(model: ModelInfo) -> int:
+    """Async version - fetch size without blocking.
+    
+    Uses asyncio to fetch sizes concurrently.
+    """
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(None, lambda: get_model_size(model, fetch_accurate=True))
+
+async def search_with_live_updates(query: str, limit: int):
+    """Search and show live-updating table.
+    
+    Pattern:
+    1. Fetch models list (fast)
+    2. Show table with "Loading..." for sizes
+    3. Fetch sizes concurrently in background
+    4. Update table rows as sizes arrive
+    """
+    # Get models fast
+    hub = HuggingFaceHub()
+    models = await hub.search_models_async(query, limit)
+    
+    # Create table with loading indicators
+    table = Table(title="Found TTS Models")
+    table.add_column("Model ID")
+    table.add_column("Size")
+    table.add_column("Downloads")
+    
+    # Add rows with loading state
+    for model in models:
+        table.add_row(model.id, "[dim]Loading...[/dim]", f"{model.downloads:,}")
+    
+    # Show table and update live
+    with Live(table, refresh_per_second=4) as live:
+        # Fetch sizes concurrently
+        tasks = [get_model_size_async(m) for m in models]
+        
+        # Update as each completes
+        for i, size in enumerate(asyncio.as_completed(tasks)):
+            size_bytes = await size
+            # Update table row i with actual size
+            table.columns[1].cells[i] = format_model_size(size_bytes)
+            live.update(table)
+```
+
+**Why Async**:
+- ✅ Fetch 20 model sizes concurrently (faster overall)
+- ✅ Show immediate results with loading indicators
+- ✅ Better perceived performance (progressive loading)
+- ✅ No `--fetch-sizes` flag needed - always fetch
+- ✅ Non-blocking operations throughout
+
+**Example (using upstream type + async)**:
+```python
+import asyncio
+from huggingface_hub.hf_api import ModelInfo
+from huggingface_hub import get_paths_info, HfApi
+
+def get_model_size(model: ModelInfo, fetch_accurate: bool = True) -> Optional[int]:
+    """Synchronous size fetching.
+    
+    Note: siblings.size is often None, so we use get_paths_info 
+    to query actual file sizes from the HF API.
+    """
+    # Try fast path first (siblings)
+    if model.siblings:
+        total = sum(s.size or 0 for s in model.siblings)
+        if total > 0:
+            return total
+    
+    # Fetch accurate sizes from API
+    if fetch_accurate:
+        api = HfApi()
+        files = api.list_repo_files(model.id, repo_type="model")
+        model_files = [f for f in files if f.endswith(('.safetensors', '.bin', '.pt'))]
+        
+        if model_files:
+            paths_info = list(get_paths_info(model.id, model_files, repo_type="model"))
+            return sum(info.size for info in paths_info if info.size)
+    
+    return None
+
+async def get_model_size_async(model: ModelInfo) -> Optional[int]:
+    """Async version for concurrent fetching."""
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(
+        None, lambda: get_model_size(model, fetch_accurate=True)
+    )
+```
+
+**Example (our own Pydantic model)**:
 ```python
 from pydantic import BaseModel, Field, computed_field
 
