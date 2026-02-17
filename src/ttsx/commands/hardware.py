@@ -7,7 +7,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
-from ttx.hardware import HardwareDetector
+from ttsx.hardware import HardwareDetector
 
 console = Console()
 

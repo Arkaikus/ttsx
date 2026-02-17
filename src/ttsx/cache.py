@@ -5,9 +5,9 @@ import shutil
 from pathlib import Path
 from typing import Optional
 
-from ttx.config import get_config
-from ttx.models.registry import ModelRegistry
-from ttx.utils.exceptions import CacheError
+from ttsx.config import get_config
+from ttsx.models.registry import ModelRegistry
+from ttsx.utils.exceptions import CacheError
 
 logger = logging.getLogger(__name__)
 
@@ -173,7 +173,7 @@ class CacheManager:
         """
         logger.warning("Clearing all non-pinned models from cache")
 
-        models = self.registry.list()
+        models = self.registry.list_models()
         cleared = 0
         errors = []
 
@@ -202,7 +202,7 @@ class CacheManager:
         """
         total_size = self.get_size()
         available_size = self.get_available_space()
-        models = self.registry.list()
+        models = self.registry.list_models()
 
         return {
             "total_size_gb": total_size / (1024**3),

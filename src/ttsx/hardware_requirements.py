@@ -12,8 +12,8 @@ from typing import Optional
 
 from huggingface_hub.hf_api import ModelInfo
 
-from ttx.hardware import HardwareDetector
-from ttx.models.types import get_model_size
+from ttsx.hardware import HardwareDetector
+from ttsx.models.types import get_model_size
 
 logger = logging.getLogger(__name__)
 

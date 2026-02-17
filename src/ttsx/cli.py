@@ -1,15 +1,18 @@
-"""CLI entry point for ttx.
+"""CLI entry point for ttsx.
 
 This module defines the Typer app and wires up command implementations
 from the commands/ folder. Keep this file minimal - business logic
 belongs in commands/*.py modules.
 """
 
+from pathlib import Path
 from typing import Optional
 
 import typer
 
-from ttx.commands import (
+from ttsx.commands import (
+    generate_command,
+    voices_command,
     hw_command,
     info_command,
     install_command,
@@ -20,7 +23,7 @@ from ttx.commands import (
 )
 
 app = typer.Typer(
-    name="ttx",
+    name="ttsx",
     help="Modern CLI for text-to-speech generation and model management",
     no_args_is_help=True,
 )
@@ -37,17 +40,67 @@ def hw(
     appropriate models for your system.
 
     Examples:
-        ttx hw                  # Show hardware info
-        ttx hw --json          # JSON output for scripting
-        ttx hw --verbose       # Detailed diagnostics
+        ttsx hw                  # Show hardware info
+        ttsx hw --json          # JSON output for scripting
+        ttsx hw --verbose       # Detailed diagnostics
     """
     hw_command(json_output=json_output, verbose=verbose)
 
 
 @app.command()
 def version() -> None:
-    """Show ttx version."""
+    """Show ttsx version."""
     version_command()
+
+
+@app.command()
+def generate(
+    text: Optional[str] = typer.Argument(None, help="Text to convert to speech (use '-' for stdin)"),
+    model: Optional[str] = typer.Option(None, "--model", "-m", help="Model ID to use"),
+    output: Optional[Path] = typer.Option(None, "--output", "-o", help="Output WAV file path"),
+    voice: Optional[str] = typer.Option(None, "--voice", "-v", help="Predefined voice name"),
+    text_file: Optional[Path] = typer.Option(None, "--text-file", "-f", help="Read text from file"),
+    ref_audio: Optional[Path] = typer.Option(None, "--ref-audio", help="Reference audio for voice cloning"),
+    ref_text: Optional[str] = typer.Option(None, "--ref-text", help="Transcript of reference audio"),
+) -> None:
+    """Generate speech from text.
+
+    Examples:
+        ttsx generate "Hello world"
+        ttsx generate "Hello" --output hello.wav
+        ttsx generate "Hello" --voice Chelsie
+        ttsx generate --text-file story.txt
+        echo "Hello" | ttsx generate -
+        ttsx generate "Hello" --ref-audio voice.wav --ref-text "Reference transcript"
+    """
+    try:
+        generate_command(
+            text=text,
+            model_id=model,
+            output=output,
+            voice=voice,
+            ref_audio=ref_audio,
+            ref_text=ref_text,
+            text_file=text_file,
+        )
+    except Exception:
+        raise typer.Exit(1)
+
+
+@app.command()
+def voices(
+    model: Optional[str] = typer.Option(None, "--model", "-m", help="Model ID to check"),
+) -> None:
+    """List available predefined voices.
+
+    Examples:
+        ttsx voices
+        ttsx voices --model mlx-community/Qwen3-TTS-12Hz-0.6B-Base-4bit
+    """
+    try:
+        voices_command(model_id=model)
+    except Exception:
+        raise typer.Exit(1)
 
 
 @app.command()
@@ -66,10 +119,10 @@ def search(
     background and displayed as they become available.
 
     Examples:
-        ttx search                  # List popular TTS models
-        ttx search "qwen"           # Search for Qwen models
-        ttx search --limit 10       # Show only 10 results
-        ttx search --compatible     # Show only models that fit in VRAM
+        ttsx search                  # List popular TTS models
+        ttsx search "qwen"           # Search for Qwen models
+        ttsx search --limit 10       # Show only 10 results
+        ttsx search --compatible     # Show only models that fit in VRAM
     """
     try:
         search_command(query=query, limit=limit, show_compatible=compatible)
@@ -84,8 +137,8 @@ def install(
     """Install a TTS model from HuggingFace Hub.
 
     Examples:
-        ttx install Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice
-        ttx install OpenMOSS-Team/MOSS-TTS
+        ttsx install Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice
+        ttsx install OpenMOSS-Team/MOSS-TTS
     """
     try:
         install_command(model_id=model_id)
@@ -98,7 +151,7 @@ def models() -> None:
     """List installed TTS models.
 
     Examples:
-        ttx models
+        ttsx models
     """
     try:
         models_command()
@@ -114,8 +167,8 @@ def remove(
     """Remove an installed TTS model.
 
     Examples:
-        ttx remove author/model-name
-        ttx remove author/model-name --force
+        ttsx remove author/model-name
+        ttsx remove author/model-name --force
     """
     try:
         remove_command(model_id=model_id, force=force)
@@ -130,7 +183,7 @@ def info(
     """Show detailed information about a model.
 
     Examples:
-        ttx info author/model-name
+        ttsx info author/model-name
     """
     try:
         info_command(model_id=model_id)
@@ -140,7 +193,7 @@ def info(
 
 @app.callback()
 def main() -> None:
-    """ttx - Modern CLI for text-to-speech generation and model management."""
+    """ttsx - Modern CLI for text-to-speech generation and model management."""
     pass
 
 

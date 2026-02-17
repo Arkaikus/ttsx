@@ -18,16 +18,21 @@
   - Automatic quantization detection (FP32/FP16/INT8/INT4)
   - Filter to show only compatible models (`--compatible`)
   - Suggests quantized alternatives for oversized models
+- 🎤 **Speech Generation**: Convert text to natural speech with Qwen3-TTS models
+  - Multiple input methods (string, file, stdin)
+  - 9 predefined voices (Aiden, Dylan, Eric, Ryan, Serena, etc.)
+  - High-quality 24kHz audio output
+  - Extensible engine architecture (supports Qwen3-TTS, MLX models)
 - 📦 **Model Management**: Install, list, info, and remove TTS models locally
 - 💾 **Cache Management**: Automatic cache management with LRU eviction
 - 🖥️ **Hardware Detection**: Check GPU/CPU capabilities
 - 🎨 **Beautiful CLI**: Rich terminal output with progress bars and tables
 
 ### 🚧 Coming Soon
-- 🎤 **Speech Generation**: Convert text to natural speech with various voices
-- 🎭 **Voice Cloning**: Zero-shot voice cloning from reference audio
+- 🎭 **Voice Cloning**: Zero-shot voice cloning from reference audio (implemented, needs testing)
 - ⚡ **Batch Processing**: Process multiple texts efficiently
 - 🎛️ **Voice Customization**: Fine-tune voice characteristics
+- 🌐 **More Model Support**: Coqui XTTS, Facebook MMS, etc.
 
 ## Quick Start
 
@@ -48,24 +53,23 @@ uv run ttx search "qwen tts" --compatible
 # Get information about a specific model (includes hardware compatibility)
 uv run ttx info Qwen/Qwen3-TTS-12Hz-0.6B-Base
 
-# Install a model (downloads ~1-2GB)
-uv run ttx install Qwen/Qwen3-TTS-12Hz-0.6B-Base
+# Install a model (downloads ~2-4GB)
+uv run ttx install Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice
 
 # List installed models
 uv run ttx models
 
+# Generate speech
+uv run ttx generate "Hello world!"
+
+# Generate with specific voice
+uv run ttx generate "Hello!" --voice Serena --output hello.wav
+
+# List available voices
+uv run ttx voices
+
 # Remove a model
-uv run ttx remove Qwen/Qwen3-TTS-12Hz-0.6B-Base
-```
-
-### Future Features (Coming Soon)
-
-```bash
-# Generate speech (Not yet implemented)
-uv run ttx generate "Hello, world!" --model qwen3-tts
-
-# With voice cloning (Not yet implemented)
-uv run ttx generate "Hello!" --voice reference.wav --output cloned.wav
+uv run ttx remove Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice
 ```
 
 ## Installation

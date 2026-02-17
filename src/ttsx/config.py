@@ -1,4 +1,4 @@
-"""Configuration management for ttx."""
+"""Configuration management for ttsx."""
 
 from pathlib import Path
 from typing import Optional
@@ -7,17 +7,17 @@ from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
-class TTXConfig(BaseSettings):
-    """Main configuration for ttx.
+class ttsxConfig(BaseSettings):
+    """Main configuration for ttsx.
 
     Configuration is loaded from:
     1. Default values
-    2. ~/.ttx/config.toml (if exists)
-    3. Environment variables (TTX_*)
+    2. ~/.ttsx/config.toml (if exists)
+    3. Environment variables (ttsx_*)
     """
 
     model_config = SettingsConfigDict(
-        env_prefix="TTX_",
+        env_prefix="ttsx_",
         env_file=".env",
         env_file_encoding="utf-8",
         case_sensitive=False,
@@ -25,11 +25,11 @@ class TTXConfig(BaseSettings):
 
     # Paths
     cache_dir: Path = Field(
-        default_factory=lambda: Path.home() / ".ttx" / "models",
+        default_factory=lambda: Path.home() / ".ttsx" / "models",
         description="Directory for cached models",
     )
     config_dir: Path = Field(
-        default_factory=lambda: Path.home() / ".ttx",
+        default_factory=lambda: Path.home() / ".ttsx",
         description="Directory for configuration files",
     )
 
@@ -119,22 +119,22 @@ class TTXConfig(BaseSettings):
 
 
 # Global configuration instance
-_config: Optional[TTXConfig] = None
+_config: Optional[ttsxConfig] = None
 
 
-def get_config() -> TTXConfig:
+def get_config() -> ttsxConfig:
     """Get the global configuration instance.
 
     Returns:
-        The TTXConfig instance.
+        The ttsxConfig instance.
     """
     global _config
     if _config is None:
-        _config = TTXConfig()
+        _config = ttsxConfig()
     return _config
 
 
-def set_config(config: TTXConfig) -> None:
+def set_config(config: ttsxConfig) -> None:
     """Set the global configuration instance.
 
     Args:

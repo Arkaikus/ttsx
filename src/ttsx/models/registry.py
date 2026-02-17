@@ -6,9 +6,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
-from ttx.config import get_config
-from ttx.models.types import InstalledModel
-from ttx.utils.exceptions import CacheError, ModelNotInstalledError
+from ttsx.config import get_config
+from ttsx.models.types import InstalledModel
+from ttsx.utils.exceptions import CacheError, ModelNotInstalledError
 
 logger = logging.getLogger(__name__)
 
@@ -146,7 +146,7 @@ class ModelRegistry:
 
         return self.models[model_id]
 
-    def list(self) -> list[InstalledModel]:
+    def list_models(self) -> list[InstalledModel]:
         """List all installed models.
 
         Returns:

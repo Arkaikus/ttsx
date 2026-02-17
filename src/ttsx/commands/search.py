@@ -9,9 +9,9 @@ from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 
-from ttx.hardware_requirements import HardwareRequirements, CompatibilityStatus
-from ttx.models.hub import HuggingFaceHub
-from ttx.models.types import format_model_size, get_model_size_async
+from ttsx.hardware_requirements import HardwareRequirements, CompatibilityStatus
+from ttsx.models.hub import HuggingFaceHub
+from ttsx.models.types import format_model_size, get_model_size_async
 
 console = Console()
 
@@ -185,4 +185,4 @@ async def search_command_async(
         "[dim]?[/dim]=Unknown[/dim]"
     )
     console.print()
-    console.print("[dim]Use [bold]ttx install <model-id>[/bold] to install a model[/dim]")
+    console.print("[dim]Use [bold]ttsx install <model-id>[/bold] to install a model[/dim]")

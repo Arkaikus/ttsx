@@ -5,11 +5,11 @@ from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 
-from ttx.cache import CacheManager
-from ttx.hardware_requirements import HardwareRequirements
-from ttx.models.hub import HuggingFaceHub
-from ttx.models.registry import ModelRegistry
-from ttx.models.types import format_model_size, get_model_size
+from ttsx.cache import CacheManager
+from ttsx.hardware_requirements import HardwareRequirements
+from ttsx.models.hub import HuggingFaceHub
+from ttsx.models.registry import ModelRegistry
+from ttsx.models.types import format_model_size, get_model_size
 
 console = Console()
 
@@ -62,12 +62,12 @@ def models_command() -> None:
     """List installed TTS models."""
     try:
         registry = ModelRegistry()
-        installed = registry.list()
+        installed = registry.list_models()
 
         if not installed:
             console.print("[yellow]No models installed.[/yellow]")
             console.print()
-            console.print("[dim]Search for models with:[/dim] [bold]ttx search[/bold]")
+            console.print("[dim]Search for models with:[/dim] [bold]ttsx search[/bold]")
             return
 
         # Create table
@@ -277,7 +277,7 @@ def info_command(model_id: str) -> None:
             
             console.print()
             console.print(
-                f"[dim]Install with:[/dim] [bold]ttx install {model_id}[/bold]"
+                f"[dim]Install with:[/dim] [bold]ttsx install {model_id}[/bold]"
             )
 
     except Exception as e:

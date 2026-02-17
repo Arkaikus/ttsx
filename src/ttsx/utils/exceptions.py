@@ -1,35 +1,35 @@
-"""Custom exceptions for ttx."""
+"""Custom exceptions for ttsx."""
 
 
-class TTXError(Exception):
-    """Base exception for all ttx errors."""
+class ttsxError(Exception):
+    """Base exception for all ttsx errors."""
 
     pass
 
 
-class ModelNotFoundError(TTXError):
+class ModelNotFoundError(ttsxError):
     """Raised when a requested model is not found."""
 
     def __init__(self, model_name: str) -> None:
         self.model_name = model_name
         super().__init__(
             f"Model '{model_name}' not found. "
-            f"Search for models with: ttx search {model_name}"
+            f"Search for models with: ttsx search {model_name}"
         )
 
 
-class ModelNotInstalledError(TTXError):
+class ModelNotInstalledError(ttsxError):
     """Raised when trying to use a model that isn't installed."""
 
     def __init__(self, model_name: str) -> None:
         self.model_name = model_name
         super().__init__(
             f"Model '{model_name}' is not installed. "
-            f"Install it with: ttx install {model_name}"
+            f"Install it with: ttsx install {model_name}"
         )
 
 
-class ModelDownloadError(TTXError):
+class ModelDownloadError(ttsxError):
     """Raised when model download fails."""
 
     def __init__(self, model_name: str, reason: str) -> None:
@@ -38,7 +38,7 @@ class ModelDownloadError(TTXError):
         super().__init__(f"Failed to download '{model_name}': {reason}")
 
 
-class AudioGenerationError(TTXError):
+class AudioGenerationError(ttsxError):
     """Raised when audio generation fails."""
 
     def __init__(self, reason: str) -> None:
@@ -46,7 +46,7 @@ class AudioGenerationError(TTXError):
         super().__init__(f"Audio generation failed: {reason}")
 
 
-class VoiceCloningError(TTXError):
+class VoiceCloningError(ttsxError):
     """Raised when voice cloning fails."""
 
     def __init__(self, reason: str) -> None:
@@ -54,7 +54,7 @@ class VoiceCloningError(TTXError):
         super().__init__(f"Voice cloning failed: {reason}")
 
 
-class InvalidAudioFileError(TTXError):
+class InvalidAudioFileError(ttsxError):
     """Raised when an audio file is invalid or cannot be loaded."""
 
     def __init__(self, filepath: str, reason: str) -> None:
@@ -63,21 +63,21 @@ class InvalidAudioFileError(TTXError):
         super().__init__(f"Invalid audio file '{filepath}': {reason}")
 
 
-class ConfigurationError(TTXError):
+class ConfigurationError(ttsxError):
     """Raised when there's a configuration problem."""
 
     def __init__(self, message: str) -> None:
         super().__init__(f"Configuration error: {message}")
 
 
-class CacheError(TTXError):
+class CacheError(ttsxError):
     """Raised when there's a cache-related problem."""
 
     def __init__(self, message: str) -> None:
         super().__init__(f"Cache error: {message}")
 
 
-class InsufficientVRAMError(TTXError):
+class InsufficientVRAMError(ttsxError):
     """Raised when there's not enough VRAM to load a model."""
 
     def __init__(self, required_gb: float, available_gb: float) -> None:

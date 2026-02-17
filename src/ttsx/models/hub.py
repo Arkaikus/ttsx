@@ -9,8 +9,8 @@ from huggingface_hub import HfApi, hf_hub_download, snapshot_download
 from huggingface_hub.hf_api import ModelInfo
 from huggingface_hub.utils import RepositoryNotFoundError
 
-from ttx.config import get_config
-from ttx.utils.exceptions import ModelDownloadError, ModelNotFoundError
+from ttsx.config import get_config
+from ttsx.utils.exceptions import ModelDownloadError, ModelNotFoundError
 
 logger = logging.getLogger(__name__)
 
