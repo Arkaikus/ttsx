@@ -9,7 +9,7 @@ from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 
-from ttx.hardware_requirements import HardwareRequirements
+from ttx.hardware_requirements import HardwareRequirements, CompatibilityStatus
 from ttx.models.hub import HuggingFaceHub
 from ttx.models.types import format_model_size, get_model_size_async
 
@@ -82,13 +82,19 @@ async def search_command_async(
 
     # Step 2: Create table with loading indicators
     model_count = len(models)
-    table = Table(title=f"Found {model_count} TTS Models", show_lines=False)
-    table.add_column("Model ID", style="cyan", no_wrap=True)
-    table.add_column("Size", style="magenta", justify="right")
-    table.add_column("HW", style="white", justify="center", no_wrap=True)  # Hardware compat
-    table.add_column("Downloads", style="green", justify="right")
-    table.add_column("Likes", style="yellow", justify="right")
-    table.add_column("Modified", style="blue")
+    table = Table(
+        title=f"Found {model_count} TTS Models",
+        show_lines=False,
+        expand=True,
+        box=None,
+        padding=(0, 1),
+    )
+    table.add_column("Model ID", style="cyan", no_wrap=False, overflow="fold", ratio=2)
+    table.add_column("Size", style="magenta", justify="right", width=10)
+    table.add_column("HW", style="white", justify="center", no_wrap=True, width=10)
+    table.add_column("Downloads", style="green", justify="right", width=12)
+    table.add_column("Likes", style="yellow", justify="right", width=8)
+    table.add_column("Modified", style="blue", width=12)
 
     # Store row data for updating (model, size, compat, downloads, likes, modified)
     row_data = []
@@ -140,7 +146,6 @@ async def search_command_async(
             
             # Apply filtering if needed
             if show_compatible and status:
-                from ttx.hardware_requirements import CompatibilityStatus
                 if status not in [CompatibilityStatus.FITS, CompatibilityStatus.TIGHT]:
                     models_to_show.discard(model_index)
 
@@ -150,13 +155,19 @@ async def search_command_async(
             if show_compatible:
                 title += " (compatible only)"
             
-            new_table = Table(title=title, show_lines=False)
-            new_table.add_column("Model ID", style="cyan", no_wrap=True)
-            new_table.add_column("Size", style="magenta", justify="right")
-            new_table.add_column("HW", style="white", justify="center", no_wrap=True)
-            new_table.add_column("Downloads", style="green", justify="right")
-            new_table.add_column("Likes", style="yellow", justify="right")
-            new_table.add_column("Modified", style="blue")
+            new_table = Table(
+                title=title,
+                show_lines=False,
+                expand=True,
+                box=None,
+                padding=(0, 1),
+            )
+            new_table.add_column("Model ID", style="cyan", no_wrap=False, overflow="fold", ratio=2)
+            new_table.add_column("Size", style="magenta", justify="right", width=10)
+            new_table.add_column("HW", style="white", justify="center", no_wrap=True, width=12)
+            new_table.add_column("Downloads", style="green", justify="right", width=12)
+            new_table.add_column("Likes", style="yellow", justify="right", width=8)
+            new_table.add_column("Modified", style="blue", width=12)
 
             for idx, row in enumerate(row_data):
                 if idx in models_to_show:
