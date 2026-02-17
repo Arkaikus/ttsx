@@ -71,12 +71,18 @@ def models_command() -> None:
             return
 
         # Create table
-        table = Table(title=f"{len(installed)} Installed Models", show_lines=False)
-        table.add_column("Model ID", style="cyan", no_wrap=True)
-        table.add_column("Size", style="green", justify="right")
-        table.add_column("Installed", style="blue")
-        table.add_column("Last Used", style="yellow")
-        table.add_column("Pinned", style="magenta", justify="center")
+        table = Table(
+            title=f"{len(installed)} Installed Models",
+            show_lines=False,
+            expand=True,
+            box=None,
+            padding=(0, 1),
+        )
+        table.add_column("Model ID", style="cyan", no_wrap=False, overflow="fold", ratio=3)
+        table.add_column("Size", style="green", justify="right", width=10)
+        table.add_column("Installed", style="blue", width=12)
+        table.add_column("Last Used", style="yellow", width=12)
+        table.add_column("Pinned", style="magenta", justify="center", width=8)
 
         for model in installed:
             table.add_row(
@@ -155,9 +161,15 @@ def info_command(model_id: str) -> None:
         if registry.is_installed(model_id):
             model = registry.get(model_id)
 
-            table = Table(title=f"Installed Model: {model_id}", show_header=False)
-            table.add_column("Property", style="cyan")
-            table.add_column("Value", style="white")
+            table = Table(
+                title=f"Installed Model: {model_id}",
+                show_header=False,
+                expand=True,
+                box=None,
+                padding=(0, 1),
+            )
+            table.add_column("Property", style="cyan", width=15)
+            table.add_column("Value", style="white", no_wrap=False, overflow="fold")
 
             table.add_row("Model ID", model.model_id)
             table.add_row("Path", str(model.path))
@@ -182,9 +194,15 @@ def info_command(model_id: str) -> None:
                 progress.add_task(description=f"Fetching info for {model_id}...", total=None)
                 model_info = hub.get_model_info(model_id)
 
-            table = Table(title=f"Model: {model_id}", show_header=False)
-            table.add_column("Property", style="cyan")
-            table.add_column("Value", style="white")
+            table = Table(
+                title=f"Model: {model_id}",
+                show_header=False,
+                expand=True,
+                box=None,
+                padding=(0, 1),
+            )
+            table.add_column("Property", style="cyan", width=15)
+            table.add_column("Value", style="white", no_wrap=False, overflow="fold")
 
             # Get size
             size_bytes = get_model_size(model_info, fetch_accurate=True)
@@ -209,9 +227,15 @@ def info_command(model_id: str) -> None:
             hw_req = HardwareRequirements()
             if hw_req.hw_info.cuda_available and hw_req._available_vram_gb:
                 console.print()
-                hw_table = Table(title="Hardware Compatibility", show_header=False, box=None)
-                hw_table.add_column("Property", style="cyan")
-                hw_table.add_column("Value")
+                hw_table = Table(
+                    title="Hardware Compatibility",
+                    show_header=False,
+                    expand=True,
+                    box=None,
+                    padding=(0, 1),
+                )
+                hw_table.add_column("Property", style="cyan", width=15)
+                hw_table.add_column("Value", no_wrap=False, overflow="fold")
                 
                 # Show available VRAM
                 hw_table.add_row(

@@ -59,10 +59,17 @@ def hw_command(json_output: bool = False, verbose: bool = False) -> None:
         return
 
     # Single unified table for all hardware info
-    table = Table(title="Hardware Information", show_header=False, title_style="bold cyan")
-    table.add_column("Category", style="cyan", width=18)
+    table = Table(
+        title="Hardware Information",
+        show_header=False,
+        title_style="bold cyan",
+        expand=True,
+        box=None,
+        padding=(0, 1),
+    )
+    table.add_column("Category", style="cyan", width=12)
     table.add_column("Property", style="blue", width=18)
-    table.add_column("Value", style="white")
+    table.add_column("Value", style="white", no_wrap=False, overflow="fold")
 
     # Compute section
     if info.cuda_available:
