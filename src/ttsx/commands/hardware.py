@@ -1,23 +1,31 @@
 """Hardware detection command."""
 
 import json
-from typing import Optional
 
+import typer
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
 from ttsx.hardware import HardwareDetector
 
+app = typer.Typer(help="Display hardware information and TTS capabilities.")
 console = Console()
 
 
-def hw_command(json_output: bool = False, verbose: bool = False) -> None:
+@app.callback(invoke_without_command=True)
+def hw(
+    json_output: bool = typer.Option(False, "--json", help="Output hardware info as JSON"),
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="Show detailed information"),
+) -> None:
     """Display hardware information and TTS capabilities.
 
-    Args:
-        json_output: Output as JSON instead of formatted tables.
-        verbose: Show additional detailed information.
+    Shows GPU, CPU, and memory information to help choose appropriate models.
+
+    Examples:
+        ttsx hw
+        ttsx hw --json
+        ttsx hw --verbose
     """
     detector = HardwareDetector()
     info = detector.detect()
@@ -58,7 +66,6 @@ def hw_command(json_output: bool = False, verbose: bool = False) -> None:
         console.print_json(json.dumps(data, indent=2))
         return
 
-    # Single unified table for all hardware info
     table = Table(
         title="Hardware Information",
         show_header=False,
@@ -71,7 +78,6 @@ def hw_command(json_output: bool = False, verbose: bool = False) -> None:
     table.add_column("Property", style="blue", width=18)
     table.add_column("Value", style="white", no_wrap=False, overflow="fold")
 
-    # Compute section
     if info.cuda_available:
         table.add_row("Compute", "Device", "[bold green]CUDA GPU[/bold green]")
         for i, gpu in enumerate(info.gpus):
@@ -101,7 +107,6 @@ def hw_command(json_output: bool = False, verbose: bool = False) -> None:
         table.add_row("Compute", "Device", "[bold yellow]CPU only[/bold yellow]")
         table.add_row("", "⚠ Note", "[yellow]No GPU detected[/yellow]")
 
-    # CPU section
     table.add_row("CPU", "Model", info.cpu_model)
     table.add_row("", "Cores", f"{info.cpu_cores} physical / {info.cpu_threads} logical")
     table.add_row(
@@ -111,7 +116,6 @@ def hw_command(json_output: bool = False, verbose: bool = False) -> None:
         f"[bold green]{info.ram_available_gb:.1f} GB[/bold green] available",
     )
 
-    # Software section
     table.add_row("Software", "PyTorch", info.pytorch_version)
     if info.pytorch_cuda_version:
         table.add_row("", "Build", f"CUDA {info.pytorch_cuda_version}")
@@ -119,15 +123,12 @@ def hw_command(json_output: bool = False, verbose: bool = False) -> None:
         table.add_row("", "Build", "CPU")
     table.add_row("", "Default Device", f"[bold]{info.device_type}[/bold]")
 
-    # Display table
     console.print()
     console.print(table)
 
-    # Recommendations
     if info.cuda_available and info.gpus:
         vram_gb = info.gpus[0].memory.available_gb
         recommendations = detector.recommend_models(vram_gb)
-
         console.print()
         console.print(
             Panel.fit(

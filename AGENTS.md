@@ -1,8 +1,8 @@
-# TTX - Agent/LLM Development Guide
+# TTSX - Agent/LLM Development Guide
 
 ## Project Overview
 
-**ttx** is a modern command-line interface (CLI) tool for text-to-speech (TTS) generation and model management. Think of it as "`uv` for TTS models" - fast, reliable, and user-friendly.
+**ttsx** is a modern command-line interface (CLI) tool for text-to-speech (TTS) generation and model management. Think of it as "`uv` for TTS models" - fast, reliable, and user-friendly.
 
 ### Core Objectives
 1. **Model Management**: Search, download, cache, and manage TTS models from HuggingFace Hub
@@ -49,11 +49,11 @@ pytest-mock = ">=3.14.0"
 ## Project Structure
 
 ```
-ttx/
+ttsx/
 ├── src/
-│   └── ttx/
+│   └── ttsx/
 │       ├── __init__.py
-│       ├── __main__.py          # Entry point for `python -m ttx`
+│       ├── __main__.py          # Entry point for `python -m ttsx`
 │       ├── cli.py                # Main CLI commands
 │       ├── config.py             # Configuration management
 │       ├── cache.py              # Local model cache management
@@ -144,7 +144,7 @@ ttx/
 
 **Where to use what**:
 - ✅ **Upstream types**: Use `huggingface_hub.hf_api.ModelInfo` for HF models
-- ✅ **Pydantic models**: Configuration (`TTXConfig`), local data (`InstalledModel`)
+- ✅ **Pydantic models**: Configuration (`TTSXConfig`), local data (`InstalledModel`)
 - ✅ **Helper functions**: Add utilities like `get_model_size()` for upstream types
 - ❌ **Don't duplicate**: Never recreate types that exist in dependencies
 
@@ -345,17 +345,17 @@ def generate_speech(
 - Log detailed errors, show user-friendly messages
 
 ```python
-class TTXError(Exception):
-    """Base exception for ttx"""
+class TTSXError(Exception):
+    """Base exception for ttsx"""
     pass
 
-class ModelNotFoundError(TTXError):
+class ModelNotFoundError(TTSXError):
     """Raised when requested model is not found"""
     def __init__(self, model_name: str):
         self.model_name = model_name
         super().__init__(
             f"Model '{model_name}' not found. "
-            f"Install it with: ttx install {model_name}"
+            f"Install it with: ttsx install {model_name}"
         )
 ```
 
@@ -369,7 +369,7 @@ class ModelNotFoundError(TTXError):
 - Type hints automatically become CLI arguments
 - Rich tables, progress bars, and colors out of the box
 - Less boilerplate than Click
-- Excellent for displaying complex info (like `ttx hw` output)
+- Excellent for displaying complex info (like `ttsx hw` output)
 - Great async support (future)
 
 **Comparison**:
@@ -432,10 +432,10 @@ class ModelCache:
 
 ## Configuration Management
 
-### User Configuration File: `~/.ttx/config.toml`
+### User Configuration File: `~/.ttsx/config.toml`
 ```toml
 [general]
-cache_dir = "~/.ttx/models"
+cache_dir = "~/.ttsx/models"
 max_cache_size = "10GB"
 default_model = "Qwen/Qwen3-TTS-12Hz-1.7B"
 
@@ -450,10 +450,10 @@ max_workers = 4  # for batch processing
 ```
 
 ### Environment Variables
-- `TTX_CACHE_DIR`: Override cache directory
-- `TTX_HF_TOKEN`: HuggingFace API token for gated models
-- `TTX_DEVICE`: Force device (cpu/cuda/mps)
-- `TTX_LOG_LEVEL`: Logging verbosity
+- `TTSX_CACHE_DIR`: Override cache directory
+- `TTSX_HF_TOKEN`: HuggingFace API token for gated models
+- `TTSX_DEVICE`: Force device (cpu/cuda/mps)
+- `TTSX_LOG_LEVEL`: Logging verbosity
 
 ## Model Support Strategy
 
@@ -544,7 +544,7 @@ logger.error("Failed to load model: %s", error)
 ```bash
 # Clone and setup
 git clone <repo>
-cd ttx
+cd ttsx
 uv venv
 source .venv/bin/activate  # or `.venv\Scripts\activate` on Windows
 
@@ -582,31 +582,42 @@ mypy src/
 ### Example CLI Flow
 ```bash
 # Check hardware capabilities
-ttx hw
+ttsx hw
 
 # Search for models
-ttx search "qwen tts"
+ttsx search "qwen tts"
+ttsx search "qwen tts" --compatible      # only models that fit VRAM
 
 # Install a model
-ttx install Qwen/Qwen3-TTS-12Hz-1.7B
+ttsx install Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice
 
-# Generate speech
-ttx generate "Hello world" --model qwen3-tts --output hello.wav
+# Generate speech with a predefined voice
+ttsx generate "Hello world" --voice Serena --output hello.wav
 
-# With voice cloning
-ttx generate "Hello world" \
-    --model qwen3-tts \
-    --voice reference.wav \
+# Read from file or stdin
+ttsx generate --text-file script.txt --output narration.wav
+echo "Hello" | ttsx generate -
+
+# Voice cloning — direct audio file
+ttsx clone "Hello world" --audio reference.wav --output cloned.wav
+ttsx clone "Hello world" \
+    --audio reference.wav \
+    --ref-text "Transcript of reference audio" \
     --output cloned.wav
 
-# Batch processing
-ttx batch script.txt --model qwen3-tts --output-dir ./outputs/
+# Voice cloning — saved profiles (reusable)
+ttsx voices add narrator reference.wav --ref-text "My reference."
+ttsx voices list
+ttsx clone "Hello world" --profile narrator --output hello.wav
 
-# List models
-ttx models ls
+# List installed models + cache stats
+ttsx models
 
-# Model info
-ttx models info qwen3-tts
+# Model info with hardware compatibility
+ttsx info Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice
+
+# Remove model
+ttsx remove Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice
 ```
 
 ## Security Considerations
@@ -726,23 +737,23 @@ def install_command(model_id: str) -> None:
 
 ### Task: "Implement hardware compatibility checking"
 
-1. **Create hardware requirements module** (`src/ttx/hardware_requirements.py`)
+1. **Create hardware requirements module** (`src/ttsx/hardware_requirements.py`)
    - Implement VRAM estimation with overhead multipliers
    - Add compatibility status calculation
    - Write unit tests for different scenarios
 
-2. **Add compatibility to ModelInfo** (`src/ttx/models/types.py`)
+2. **Add compatibility to ModelInfo** (`src/ttsx/models/types.py`)
    - Add `@computed_field` for `compatibility` property
    - Implement `get_hardware_warning()` method
    - Cache hardware detection for performance
 
-3. **Update search command** (`src/ttx/commands/search.py`)
+3. **Update search command** (`src/ttsx/commands/search.py`)
    - Add compatibility column to results table
    - Show user's hardware at top
    - Add legend explaining status indicators
    - Implement `--compatible` and `--no-hardware-check` flags
 
-4. **Update install command** (`src/ttx/commands/models.py`)
+4. **Update install command** (`src/ttsx/commands/models.py`)
    - Check compatibility before download
    - Show warning if model won't fit
    - Offer to search for quantized versions
@@ -760,7 +771,7 @@ def install_command(model_id: str) -> None:
 
 ### Task: "Add support for a new model"
 1. Research model architecture and API
-2. Create adapter in `src/ttx/models/adapters/{model_family}.py`
+2. Create adapter in `src/ttsx/models/adapters/{model_family}.py`
 3. Implement `TTSStrategy` protocol
 4. Add model ID pattern to factory in `models/loader.py`
 5. Create unit tests with fixtures
@@ -768,13 +779,41 @@ def install_command(model_id: str) -> None:
 7. Document in README and model support matrix
 
 ### Task: "Add a new CLI command"
-1. Add command function in `src/ttx/cli.py`
-2. Use Typer decorators with type hints
-3. Implement business logic in appropriate module
-4. Add validation using Pydantic
-5. Write tests for command
-6. Add help text and examples
-7. Update user documentation
+
+**Architecture**: Each command module owns its own `typer.Typer()` app. `cli.py` only wires them via `app.add_typer()`.
+
+**Steps:**
+
+1. Create `src/ttsx/commands/<name>.py` with:
+   ```python
+   import typer
+   app = typer.Typer(help="Short description.")
+
+   # Single-action command (no subcommands):
+   @app.callback(invoke_without_command=True)
+   def my_command(
+       arg: str = typer.Argument(...),
+       flag: bool = typer.Option(False, "--flag"),
+   ) -> None:
+       """Docstring becomes --help text. Include Examples: block."""
+       ...
+
+   # OR grouped command (multiple subcommands):
+   @app.command("sub")
+   def sub_command(...) -> None: ...
+   ```
+
+2. Export from `commands/__init__.py`:
+   ```python
+   from ttsx.commands.<name> import app as <name>_app
+   ```
+
+3. Wire in `cli.py` (one line):
+   ```python
+   app.add_typer(<name>_app, name="<name>")
+   ```
+
+4. Write tests, update docs — `cli.py` itself never needs editing for logic changes
 
 ### Task: "Improve error handling"
 1. Identify error-prone operations
@@ -801,6 +840,7 @@ def install_command(model_id: str) -> None:
 - ❌ Don't hardcode paths - use configuration
 - ❌ Don't ignore type hints - mypy should pass
 - ❌ Don't create temporary files without cleanup
+- ❌ Don't add comments full of dashes, i.e `# --- section -----------....`
 
 ### What to PREFER
 - ✅ Use type hints everywhere
@@ -820,7 +860,7 @@ def install_command(model_id: str) -> None:
 ```python
 # tests/unit/test_models_hub.py
 import pytest
-from ttx.models.hub import search_models
+from ttsx.models.hub import search_models
 
 def test_search_models_returns_results():
     """Test that search returns model list"""
@@ -928,15 +968,42 @@ When implementing features, consider:
 
 ## Current Development Focus
 
-As of now, we're in **Phase 1: MVP Core**. The immediate priorities are:
+We are in **Phase 2: Advanced Features**. Phase 1 MVP and Phase 2.1 Voice Cloning are complete.
 
-1. ✅ Project structure setup
-2. 🔄 Choose and implement CLI framework (Typer + Rich)
-3. 🔄 HuggingFace Hub integration for model search/download
-4. 🔄 Model cache management system
-5. 🔄 Basic TTS generation with at least one model
+### ✅ Completed
 
-Focus on getting something working end-to-end before adding advanced features. The goal is to have a functioning `ttx install MODEL && ttx generate "text"` flow as soon as possible.
+1. ✅ Project structure and CLI framework (Typer + Rich)
+2. ✅ HuggingFace Hub integration (search, install, info, remove)
+3. ✅ Model registry and cache management (LRU eviction)
+4. ✅ TTS generation engine (Qwen3-TTS: CustomVoice, VoiceDesign, Base; MLX)
+5. ✅ Hardware detection + VRAM compatibility checking
+6. ✅ Async size fetching with live-updating search tables
+7. ✅ **Voice cloning system** (Phase 2.1):
+   - `src/ttsx/voice/profiles.py` — `VoiceProfile` + `VoiceProfileManager`
+   - `src/ttsx/voice/encoder.py` — audio validation + quality checks
+   - `src/ttsx/voice/cloner.py` — cloning orchestration
+   - `src/ttsx/commands/voices.py` — voices subcommands + clone command
+   - `ttsx voices list/add/remove/info` + `ttsx clone`
+
+### 🔄 Next priorities
+
+1. **Phase 2.2** — Batch processing (CSV/JSON input, parallel generation)
+2. **Phase 2.3** — Voice customization (pitch, speed, style)
+3. **Phase 3.4** — Unit and integration tests for voice cloning
+4. **Phase 1.6 Phase 4** — Hardware check on `ttsx install`
+5. **Phase 4.1** — Python library API
+
+### Key voice cloning files for agents
+
+| File | Purpose |
+|---|---|
+| `src/ttsx/voice/profiles.py` | `VoiceProfile` Pydantic model + `VoiceProfileManager` CRUD |
+| `src/ttsx/voice/encoder.py` | Audio format validation, duration/quality checks |
+| `src/ttsx/voice/cloner.py` | `clone_with_profile()` and `clone_with_audio()` |
+| `src/ttsx/commands/voices.py` | `app` — `@app.command("list/add/remove/info")` subcommands |
+| `src/ttsx/commands/clone.py` | `app` — `@app.callback` single-action clone command |
+| `src/ttsx/cli.py` | Pure wiring: `app.add_typer(voices_app)`, `app.add_typer(clone_app)` |
+| `src/ttsx/generation/engine.py` | `QwenTTSEngine.generate()` accepts `ref_audio`/`ref_text` |
 
 ## Support
 

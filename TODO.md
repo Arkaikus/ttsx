@@ -1,4 +1,4 @@
-# TTX Project Roadmap
+# TTSX Project Roadmap
 
 ## Project Overview
 A modern CLI tool for managing text-to-speech models and generation, inspired by Python's `uv` package manager design philosophy.
@@ -72,7 +72,7 @@ async def search_command_async(query: str, limit: int):
   - [x] Display model metadata (size, downloads, likes, modified date)
 - [x] Implement model download/caching
   - [x] Use HuggingFace Hub API
-  - [x] Local cache management (~/.ttx/models/)
+  - [x] Local cache management (~/.ttsx/models/)
   - [x] Model registry with JSON persistence
 - [x] List installed models command
 - [x] Remove/clean models command
@@ -85,19 +85,19 @@ async def search_command_async(query: str, limit: int):
   - [x] WAV file output
   - [x] Configurable sample rate and audio parameters
 - [x] Text input methods
-  - [x] Direct text string input (`ttx generate "text"`)
+  - [x] Direct text string input (`ttsx generate "text"`)
   - [x] Text file input (`--text-file`)
-  - [x] Stdin support for piping (`echo "text" | ttx generate -`)
+  - [x] Stdin support for piping (`echo "text" | ttsx generate -`)
 - [x] Output options
   - [x] Specify output file path (`--output`)
   - [x] Auto-naming with timestamps
   - [ ] Directory output for batch processing (Future)
 
 **Implementation Details:**
-- Created `src/ttx/generation/engine.py` with `TTSEngine` class
+- Created `src/ttsx/generation/engine.py` with `TTSEngine` class
 - Supports MLX models (Apple Silicon only) and PyTorch/Transformers models
 - Auto-detects model type (CustomVoice, VoiceDesign, Base) and uses appropriate API
-- Created `src/ttx/commands/generate.py` with full CLI interface
+- Created `src/ttsx/commands/generate.py` with full CLI interface
 - Added voice options: `--voice` for predefined voices, `--ref-audio`/`--ref-text` for cloning
 - Rich progress indicators and formatted output
 
@@ -110,23 +110,29 @@ async def search_command_async(query: str, limit: int):
 
 ### 1.4 CLI Commands (MVP)
 ```bash
-ttx search [query]              # ✅ Search/list models on HF (with size info)
-ttx install <model-name>        # ✅ Download and cache model
-ttx models                      # ✅ Show installed models (with cache stats)
-ttx generate "text" [OPTIONS]   # ✅ Generate speech from text (implemented, pending model)
-ttx voices                      # ✅ List available predefined voices
-ttx remove <model-name>         # ✅ Remove cached model
-ttx info <model-name>           # ✅ Show model details (with size)
-ttx hw                          # ✅ Show hardware info (single unified table)
-ttx version                     # ✅ Show ttx version
+ttsx search [query]              # ✅ Search/list models on HF (with size info)
+ttsx install <model-name>        # ✅ Download and cache model
+ttsx models                      # ✅ Show installed models (with cache stats)
+ttsx generate "text" [OPTIONS]   # ✅ Generate speech from text
+ttsx voices list                 # ✅ List saved voice profiles (+ --predefined flag)
+ttsx voices add name ref.wav     # ✅ Save voice profile (Phase 2.1)
+ttsx voices remove name          # ✅ Remove voice profile (Phase 2.1)
+ttsx voices info name            # ✅ Show voice profile details (Phase 2.1)
+ttsx clone "text" --profile name # ✅ Clone voice and generate (Phase 2.1)
+ttsx clone "text" --audio ref.wav# ✅ Clone from raw audio (Phase 2.1)
+ttsx remove <model-name>         # ✅ Remove cached model
+ttsx info <model-name>           # ✅ Show model details (with size)
+ttsx hw                          # ✅ Show hardware info (single unified table)
+ttsx version                     # ✅ Show ttsx version
 ```
 
-**Implemented (9/9 commands)**:
+**Implemented (13/13 commands)**:
 - ✅ CLI refactored into `commands/` folder for scalability
 - ✅ All models use Pydantic for validation
 - ✅ Beautiful Rich tables with size information
 - ✅ Hardware detection with single unified table
-- ⏳ TTS generation command pending
+- ✅ TTS generation complete (Qwen3-TTS + MLX engines)
+- ✅ Voice profiles system and `ttsx clone` command
 
 ### 1.5 Hardware Detection ✅ COMPLETE
 - [x] Implement hardware information command
@@ -145,7 +151,7 @@ ttx version                     # ✅ Show ttx version
 **Goal**: Prevent users from downloading models that won't fit in VRAM
 
 #### Phase 1: Core Infrastructure ✅ DONE
-- [x] Create `HardwareRequirements` class (`src/ttx/hardware_requirements.py`)
+- [x] Create `HardwareRequirements` class (`src/ttsx/hardware_requirements.py`)
   - [x] `estimate_vram()` - Calculate VRAM with overhead
     - FP32: 1.5x multiplier (full precision)
     - FP16: 1.2x multiplier (recommended)
@@ -198,8 +204,8 @@ ttx version                     # ✅ Show ttx version
   - [ ] `auto_suggest_quantized` (default: true)
   - [ ] `default_precision` (default: "fp16")
   - [ ] `vram_safety_margin` (default: 0.2 = 20%)
-- [ ] Support config file (`~/.ttx/config.toml`)
-- [ ] Support environment variables (`TTX_*`)
+- [ ] Support config file (`~/.ttsx/config.toml`)
+- [ ] Support environment variables (`TTSX_*`)
 
 #### Design Decisions
 **Warn vs Block**: Warn but allow installation (users know best)
@@ -216,20 +222,64 @@ ttx version                     # ✅ Show ttx version
 
 ## Phase 2: Advanced Features
 
-### 2.1 Voice Cloning (Zero-Shot)
-- [ ] Research and integrate zero-shot TTS models
-  - [ ] Evaluate models supporting voice cloning (VALL-E style)
-  - [ ] Test with Qwen3-TTS-CustomVoice, SoulX-Singer
-- [ ] Voice sample processing
-  - [ ] Accept WAV/MP3 reference audio
-  - [ ] Voice embedding extraction
-  - [ ] Voice profile caching
-- [ ] Cloning command interface
+### 2.1 Voice Cloning (Zero-Shot) ✅ DONE
+
+**Status**: ✅ Completed  
+**Implementation date**: 2026-02-21
+
+#### What was implemented
+
+**New modules** (`src/ttsx/voice/`):
+- [x] `voice/profiles.py` — `VoiceProfile` (Pydantic) + `VoiceProfileManager`
+  - Profiles stored as JSON at `~/.ttsx/voices/profiles.json`
+  - Audio files copied into `~/.ttsx/voices/audio/` for safe-keeping
+  - Full CRUD: add, remove, get, list, exists
+  - `--overwrite` support
+- [x] `voice/encoder.py` — Audio validation and pre-processing utilities
+  - Format validation (WAV, MP3, FLAC, OGG, M4A, AAC)
+  - `check_cloning_suitability()` — advisory warnings on duration/sample-rate
+  - `get_audio_info()` — duration, sample rate, channels
+  - `prepare_audio_for_cloning()` — stereo→mono, resample (librosa), normalize
+- [x] `voice/cloner.py` — Voice cloning orchestration
+  - `clone_with_profile()` — uses a saved profile
+  - `clone_with_audio()` — direct reference audio, returns `(path, warnings)`
+  - Model auto-selection when no `--model` provided
+- [x] `commands/voices.py` — All voice management UI + clone command
+- [x] `voice/__init__.py` — Clean public API exports
+
+**CLI changes** (`cli.py`):
+- [x] `voices` converted from a single command to a Typer **sub-app** with 4 subcommands
+- [x] New top-level `clone` command
+
+#### Voice profile commands
 ```bash
-ttx clone --voice reference.wav --text "text" -o output.wav
-ttx voices list                 # Show cached voice profiles
-ttx voices add name ref.wav     # Save voice profile
+ttsx voices list                          # list saved profiles
+ttsx voices list --predefined             # also show built-in model voices
+ttsx voices add narrator ref.wav          # save a profile (audio is copied)
+ttsx voices add narrator ref.wav \
+  --ref-text "transcript here" \
+  --language English \
+  --description "deep narrator"
+ttsx voices remove narrator               # remove with confirmation
+ttsx voices remove narrator --force
+ttsx voices info narrator                 # detailed profile view
 ```
+
+#### Clone command
+```bash
+ttsx clone "Hello world" --profile narrator           # from saved profile
+ttsx clone "Hello world" --audio ref.wav              # direct audio file
+ttsx clone "Hello world" --audio ref.wav \
+  --ref-text "My reference transcript" \
+  --output cloned.wav
+ttsx clone --text-file script.txt --profile narrator
+echo "Hello" | ttsx clone - --profile narrator
+```
+
+#### Audio quality checks
+- Warns if reference audio < 3s or > 30s
+- Warns if sample rate < 16kHz
+- All warnings are advisory — generation proceeds regardless
 
 ### 2.2 Batch Processing
 - [ ] Batch text file processing
@@ -247,7 +297,7 @@ ttx voices add name ref.wav     # Save voice profile
 
 ### 2.4 Quality of Life Features
 - [ ] Interactive REPL mode for quick testing
-- [ ] Configuration file support (~/.ttx/config.toml)
+- [ ] Configuration file support (~/.ttsx/config.toml)
 - [ ] Model presets/profiles
 - [ ] Output format options (WAV, MP3, OGG)
 - [ ] Preview/play audio after generation (optional)
@@ -338,17 +388,13 @@ ttx voices add name ref.wav     # Save voice profile
 - [ ] Clear documentation with 90%+ coverage
 - [ ] Community adoption: 100+ GitHub stars in first 3 months
 
-## Current Priority: Phase 1 (MVP Core)
+## Current Priority: Phase 2 (Advanced Features)
 
-Focus on getting a working, reliable CLI that can:
-1. Search and download TTS models from HuggingFace
-2. Generate speech from text with at least 2-3 popular models
-3. Manage model cache efficiently
-4. Provide excellent CLI UX with clear feedback
+Phase 1 MVP and Phase 2.1 Voice Cloning are complete. Focus now:
 
 **Next Immediate Steps:**
-1. Choose CLI framework (Click vs Rich/Typer)
-2. Set up project structure (src layout)
-3. Implement HuggingFace Hub integration
-4. Create basic model downloader
-5. Implement first TTS model integration (start with Qwen3-TTS or simpler model)
+1. ⏳ **Phase 2.2** — Batch processing (CSV/JSON input, parallel generation)
+2. ⏳ **Phase 2.3** — Voice customization (pitch, speed, style)
+3. ⏳ **Phase 3.4** — Unit + integration tests for voice cloning modules
+4. ⏳ **Phase 1.6 Phase 4** — Hardware check on `ttsx install` (warn + confirm)
+5. ⏳ **Phase 4.1** — Python library API (programmatic usage)

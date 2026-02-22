@@ -1,8 +1,8 @@
-# TTX Architecture Documentation
+# TTSX Architecture Documentation
 
 ## Overview
 
-TTX is designed as a modular, extensible CLI tool for text-to-speech generation and model management. The architecture follows clean separation of concerns with a focus on maintainability and testability.
+TTSX is designed as a modular, extensible CLI tool for text-to-speech generation and model management. The architecture follows clean separation of concerns with a focus on maintainability and testability.
 
 ## Design Philosophy
 
@@ -41,7 +41,7 @@ TTX is designed as a modular, extensible CLI tool for text-to-speech generation 
 6. **Future-proof**: Easy to add validation rules, computed fields, and serialization logic
 
 **Where Pydantic is used**:
-- ✅ `config.py` - `TTXConfig` (extends `pydantic-settings.BaseSettings`)
+- ✅ `config.py` - `TTSXConfig` (extends `pydantic-settings.BaseSettings`)
 - ✅ `models/types.py` - `ModelInfo`, `InstalledModel`
 - Future: API request/response models
 - Future: Generation parameters and audio settings
@@ -121,46 +121,105 @@ Audio File ← Audio Writer ← Post-Processor ← TTS Engine
 
 ## Module Architecture
 
-### 1. CLI Module (`cli.py`)
+### 1. CLI Module (`cli.py` + `commands/`)
 
-**Responsibility**: Command-line interface and user interaction
+**Responsibility**: Command-line interface, argument parsing, user output
 
-**Key Components**:
-- Command definitions using Typer
-- Argument parsing and validation
-- Output formatting with Rich
-- Progress reporting
-- Error display
+#### Design: one app per command module
 
-**Design Notes**:
-- Thin layer - no business logic
-- Delegate all work to application layer
-- Focus on user experience
-- Handle Ctrl+C gracefully
+Each file in `commands/` defines and **owns** its own `typer.Typer()` instance. `cli.py` is a pure wiring file — it only calls `app.add_typer()`. No argument definitions or business logic live in `cli.py`.
+
+```
+commands/
+├── generate.py   → app  (single action, @app.callback)
+├── clone.py      → app  (single action, @app.callback)
+├── voices.py     → app  (sub-commands: list / add / remove / info)
+├── models.py     → app  (sub-commands: list / install / remove / info)
+├── search.py     → app  (single action, @app.callback)
+├── hardware.py   → app  (single action, @app.callback)
+└── version.py    → app  (single action, @app.callback)
+```
+
+`cli.py` wires them in one place:
 
 ```python
-# Example structure
-import typer
-from rich.console import Console
+# cli.py — nothing else goes here
+from ttsx.commands import generate_app, clone_app, voices_app, models_app, ...
 
-app = typer.Typer()
-console = Console()
-
-@app.command()
-def generate(
-    text: str,
-    model: str = "qwen3-tts",
-    output: Optional[Path] = None,
-):
-    """Generate speech from text"""
-    try:
-        # Delegate to application layer
-        result = SpeechGenerator().generate(text, model, output)
-        console.print(f"[green]✓[/green] Generated: {result}")
-    except TTXError as e:
-        console.print(f"[red]Error:[/red] {e}")
-        raise typer.Exit(1)
+app = typer.Typer(...)
+app.add_typer(hw_app,       name="hw")
+app.add_typer(generate_app, name="generate")
+app.add_typer(clone_app,    name="clone")
+app.add_typer(voices_app,   name="voices")
+app.add_typer(models_app,   name="models")
+app.add_typer(search_app,   name="search")
+app.add_typer(version_app,  name="version")
 ```
+
+#### Two sub-app patterns
+
+**Pattern A — single-action command** (`generate`, `clone`, `hw`, `search`, `version`):
+
+The module's `app` has exactly one entry point defined as the app's callback. Typer invokes it directly when the command is called.
+
+```python
+# commands/generate.py
+app = typer.Typer(help="Generate speech from text.")
+
+@app.callback(invoke_without_command=True)
+def generate(
+    text: Optional[str] = typer.Argument(None),
+    model: Optional[str] = typer.Option(None, "--model", "-m"),
+    output: Optional[Path] = typer.Option(None, "--output", "-o"),
+    ...
+) -> None:
+    """Generate speech from text."""
+    # full implementation here — no wrapper needed
+```
+
+**Pattern B — command group** (`models`, `voices`):
+
+The module's `app` has multiple `@app.command("name")` subcommands, plus an optional `@app.callback(invoke_without_command=True)` for the default behavior.
+
+```python
+# commands/models.py
+app = typer.Typer(help="Manage installed TTS models.")
+
+@app.callback(invoke_without_command=True)
+def _default(ctx: typer.Context) -> None:
+    if ctx.invoked_subcommand is None:
+        _list_impl()   # ttsx models → defaults to list
+
+@app.command("install")
+def install(model_id: str = typer.Argument(...)) -> None: ...
+
+@app.command("list")
+def list_models() -> None: ...
+
+@app.command("remove")
+def remove(model_id: str = typer.Argument(...), force: bool = ...) -> None: ...
+
+@app.command("info")
+def info(model_id: str = typer.Argument(...)) -> None: ...
+```
+
+#### Command surface
+
+| Command | Sub-commands | Notes |
+|---|---|---|
+| `ttsx hw` | — | JSON + verbose flags |
+| `ttsx version` | — | |
+| `ttsx search` | — | Async live-updating table |
+| `ttsx generate` | — | Predefined voices + inline cloning |
+| `ttsx clone` | — | Profile or raw audio |
+| `ttsx voices` | `list` `add` `remove` `info` | |
+| `ttsx models` | `list` `install` `remove` `info` | Default: list |
+
+**Design Notes**:
+- `cli.py` stays under ~30 lines — pure wiring, zero logic
+- All Typer `Argument`/`Option` definitions live inside the owning module
+- Every module is independently importable and testable
+- Adding a new command = create `commands/new.py`, add one `add_typer()` line
 
 ### 2. Models Module (`models/`)
 
@@ -217,14 +276,14 @@ class ModelRegistry:
         """Unregister and optionally delete model"""
 ```
 
-**Storage**: JSON file at `~/.ttx/models/registry.json`
+**Storage**: JSON file at `~/.ttsx/models/registry.json`
 
 ```json
 {
   "models": [
     {
       "id": "Qwen/Qwen3-TTS-12Hz-1.7B",
-      "path": "/home/user/.ttx/models/qwen3-tts",
+      "path": "/home/user/.ttsx/models/qwen3-tts",
       "installed_at": "2026-02-16T12:00:00Z",
       "size_bytes": 1700000000,
       "last_used": "2026-02-16T13:30:00Z",
@@ -348,55 +407,112 @@ class AudioProcessor:
         """Save audio to file"""
 ```
 
-### 4. Voice Module (`voice/`)
+### 4. Voice Module (`voice/`) ✅ Implemented
 
-**Responsibility**: Voice cloning and profile management
+**Responsibility**: Voice cloning, audio validation, and voice profile management
 
 #### 4.1 Voice Encoder (`encoder.py`)
 
-```python
-class VoiceEncoder:
-    """Extract voice embeddings from audio samples"""
-    
-    def encode(self, audio_path: Path) -> VoiceEmbedding:
-        """Extract voice embedding from reference audio"""
-        
-    def validate_sample(self, audio_path: Path) -> bool:
-        """Check if audio sample is suitable for cloning"""
-```
+Provides audio validation and pre-processing utilities. Does **not** extract neural embeddings — the TTS engine handles that internally via its `ref_audio` parameter.
 
-**Requirements**:
-- Support multiple audio formats (WAV, MP3, FLAC)
-- Validate sample quality (duration, SNR, sample rate)
-- Efficient embedding extraction
+```python
+SUPPORTED_FORMATS = {".wav", ".mp3", ".flac", ".ogg", ".m4a", ".aac"}
+
+def validate_audio(audio_path: Path) -> None:
+    """Validate existence and format of audio file."""
+
+def get_audio_info(audio_path: Path) -> dict:
+    """Return duration, sample_rate, channels, format."""
+
+def check_cloning_suitability(audio_path: Path) -> list[str]:
+    """Advisory quality checks — returns list of warning strings."""
+    # Warns if duration < 3s or > 30s
+    # Warns if sample rate < 16kHz
+
+def prepare_audio_for_cloning(
+    audio_path: Path,
+    target_sample_rate: Optional[int] = None,
+    normalize: bool = True,
+) -> tuple[np.ndarray, int]:
+    """Load, convert stereo→mono, resample (librosa), peak-normalize."""
+```
 
 #### 4.2 Voice Profiles (`profiles.py`)
 
+Persistent named voice profiles backed by copied audio files.
+
 ```python
+class VoiceProfile(BaseModel):
+    """Saved voice profile. Stored as JSON entry."""
+    name: str
+    audio_path: Path          # Points into ~/.ttsx/voices/audio/
+    ref_text: Optional[str]   # Transcript (recommended for quality)
+    description: Optional[str]
+    language: Optional[str]
+    created_at: datetime
+
+    @property
+    def audio_exists(self) -> bool: ...
+
 class VoiceProfileManager:
-    """Manage saved voice profiles"""
+    """CRUD manager for VoiceProfile objects."""
     
-    def save_profile(
-        self,
-        name: str,
-        embedding: VoiceEmbedding,
-        metadata: dict,
-    ):
-        """Save a voice profile for reuse"""
-        
-    def load_profile(self, name: str) -> VoiceEmbedding:
-        """Load a saved voice profile"""
-        
-    def list_profiles(self) -> list[str]:
-        """List all saved profiles"""
+    # Storage layout
+    # ~/.ttsx/voices/profiles.json   — profile metadata
+    # ~/.ttsx/voices/audio/<name>.*  — copied reference audio
+
+    def add(self, name, audio_file, ref_text, ..., overwrite) -> VoiceProfile:
+        """Copy audio to managed dir, persist metadata."""
+
+    def remove(self, name) -> bool:
+        """Delete audio file and remove metadata entry."""
+
+    def get(self, name) -> Optional[VoiceProfile]: ...
+    def list_profiles(self) -> list[VoiceProfile]: ...
+    def exists(self, name) -> bool: ...
 ```
 
-**Storage**: `~/.ttx/voices/`
+**Storage layout**:
 ```
-voices/
-├── alice.json
-├── bob.json
-└── narrator.json
+~/.ttsx/voices/
+├── profiles.json       — JSON map of name → VoiceProfile metadata
+└── audio/
+    ├── narrator.wav    — copied reference audio
+    └── alice.mp3
+```
+
+#### 4.3 Voice Cloner (`cloner.py`)
+
+Thin orchestration layer that connects profiles/audio → model registry → TTS engine.
+
+```python
+def clone_with_profile(
+    text: str,
+    profile_name: str,
+    model_id: Optional[str] = None,
+    output_path: Optional[Path] = None,
+) -> Path:
+    """Load saved profile, resolve model, delegate to engine."""
+
+def clone_with_audio(
+    text: str,
+    audio_path: Path,
+    model_id: Optional[str] = None,
+    ref_text: Optional[str] = None,
+    output_path: Optional[Path] = None,
+) -> tuple[Path, list[str]]:
+    """Validate audio, run quality checks, delegate to engine.
+    Returns (output_path, advisory_warnings)."""
+```
+
+**Data flow for voice cloning**:
+```
+ttsx clone "text" --profile narrator
+  → VoiceProfileManager.get("narrator")
+  → ModelRegistry.get(model_id)
+  → get_tts_engine(model_id)          ← factory
+  → engine.generate(..., ref_audio=profile.audio_path, ref_text=...)
+  → WAV file output
 ```
 
 ### 5. Configuration Module (`config.py`)
@@ -406,10 +522,10 @@ voices/
 ```python
 from pydantic_settings import BaseSettings
 
-class TTXConfig(BaseSettings):
+class TTSXConfig(BaseSettings):
     """Global configuration"""
     
-    cache_dir: Path = Path.home() / ".ttx" / "models"
+    cache_dir: Path = Path.home() / ".ttsx" / "models"
     max_cache_size: str = "10GB"
     default_model: str = "qwen3-tts"
     device: str = "auto"
@@ -417,17 +533,17 @@ class TTXConfig(BaseSettings):
     audio_format: str = "wav"
     
     class Config:
-        env_prefix = "TTX_"
+        env_prefix = "TTSX_"
         env_file = ".env"
 
 # Singleton instance
-config = TTXConfig()
+config = TTSXConfig()
 ```
 
 **Configuration Sources** (priority order):
 1. Command-line arguments
-2. Environment variables (`TTX_*`)
-3. User config file (`~/.ttx/config.toml`)
+2. Environment variables (`TTSX_*`)
+3. User config file (`~/.ttsx/config.toml`)
 4. Default values
 
 ### 6. Cache Module (`cache.py`)
@@ -578,7 +694,7 @@ def hw():
     
     Shows GPU, CPU, and memory information relevant for TTS model selection.
     """
-    from ttx.hardware import HardwareDetector
+    from ttsx.hardware import HardwareDetector
     from rich.table import Table
     from rich.panel import Panel
     
@@ -870,8 +986,8 @@ class ModelInfo(BaseModel):
         if not self.size_bytes:
             return CompatibilityStatus.UNKNOWN
         
-        from ttx.hardware import HardwareDetector
-        from ttx.hardware_requirements import HardwareRequirements
+        from ttsx.hardware import HardwareDetector
+        from ttsx.hardware_requirements import HardwareRequirements
         
         detector = HardwareDetector()
         info = detector.detect()
@@ -939,7 +1055,7 @@ logging.basicConfig(
     handlers=[RichHandler(rich_tracebacks=True)]
 )
 
-logger = logging.getLogger("ttx")
+logger = logging.getLogger("ttsx")
 ```
 
 **Log Levels**:
@@ -954,10 +1070,10 @@ logger = logging.getLogger("ttx")
 **Exception Hierarchy**:
 
 ```python
-class TTXError(Exception):
+class TTSXError(Exception):
     """Base exception"""
 
-class ModelError(TTXError):
+class ModelError(TTSXError):
     """Model-related errors"""
 
 class ModelNotFoundError(ModelError):
@@ -966,13 +1082,13 @@ class ModelNotFoundError(ModelError):
 class ModelDownloadError(ModelError):
     """Failed to download model"""
 
-class GenerationError(TTXError):
+class GenerationError(TTSXError):
     """Generation failed"""
 
-class AudioError(TTXError):
+class AudioError(TTSXError):
     """Audio processing error"""
 
-class ConfigError(TTXError):
+class ConfigError(TTSXError):
     """Configuration error"""
 ```
 
@@ -984,7 +1100,7 @@ except ModelNotFoundError as e:
     logger.error("Model not found: %s", model_id)
     console.print(
         f"[red]Error:[/red] Model '{model_id}' is not installed.\n"
-        f"[yellow]Tip:[/yellow] Run [cyan]ttx install {model_id}[/cyan]"
+        f"[yellow]Tip:[/yellow] Run [cyan]ttsx install {model_id}[/cyan]"
     )
     raise typer.Exit(1)
 ```
@@ -1051,53 +1167,53 @@ class AudioOutput(BaseModel):
 ### Voice Profile
 
 ```python
-class VoiceEmbedding(BaseModel):
-    """Voice embedding for cloning"""
-    embedding: np.ndarray  # or list[float] for JSON serialization
-    sample_rate: int
-    source_file: Optional[str] = None
-    
-    class Config:
-        arbitrary_types_allowed = True
-
 class VoiceProfile(BaseModel):
-    """Saved voice profile"""
+    """Saved voice profile for cloning."""
     name: str
-    embedding: VoiceEmbedding
+    audio_path: Path            # Managed copy in ~/.ttsx/voices/audio/
+    ref_text: Optional[str]     # Transcript of reference audio
+    description: Optional[str]
+    language: Optional[str]
     created_at: datetime
-    description: Optional[str] = None
-    language: Optional[str] = None
+
+    @property
+    def audio_exists(self) -> bool:
+        return self.audio_path.exists()
+
+    def format_created(self) -> str:
+        return self.created_at.strftime("%Y-%m-%d %H:%M")
 ```
+
+**Design note**: We store the raw audio file, not a neural embedding. The TTS engine (e.g. `QwenTTSEngine`) handles embedding extraction internally at inference time, which avoids model-specific embedding format coupling and ensures compatibility across model updates.
 
 ## File System Layout
 
 ### User Directories
 
 ```
-~/.ttx/
-├── config.toml              # User configuration
-├── models/
-│   ├── registry.json        # Installed models database
-│   ├── qwen3-tts/          # Model files
+~/.ttsx/
+├── config.toml              # User configuration (optional)
+├── registry.json            # Installed models database
+├── models/                  # Model files (cache_dir)
+│   ├── Qwen--Qwen3-TTS-12Hz-0.6B-CustomVoice/
 │   │   ├── config.json
 │   │   ├── model.safetensors
 │   │   └── tokenizer/
-│   └── moss-tts/
-├── voices/                  # Saved voice profiles
-│   ├── alice.json
-│   └── bob.json
-├── cache/                   # Temporary files
-└── logs/                    # Application logs
-    └── ttx.log
+│   └── Qwen--Qwen3-TTS-12Hz-1.7B-CustomVoice/
+└── voices/                  # Voice profiles (Phase 2.1)
+    ├── profiles.json        # Profile metadata (JSON map)
+    └── audio/               # Managed copies of reference audio
+        ├── narrator.wav
+        └── alice.mp3
 ```
 
 ### Project Structure
 
 ```
-ttx/
-├── src/ttx/
+ttsx/
+├── src/ttsx/
 │   ├── __init__.py
-│   ├── __main__.py          # Entry point: `python -m ttx`
+│   ├── __main__.py          # Entry point: `python -m ttsx`
 │   ├── cli.py               # CLI commands
 │   ├── config.py            # Configuration management
 │   ├── cache.py             # Cache management
@@ -1453,10 +1569,13 @@ uv pip install -e ".[dev]"
 
 ### Adding New Commands
 
-1. Add command function in `cli.py`
-2. Implement logic in appropriate module
-3. Add tests
-4. Update documentation
+1. Create `src/ttsx/commands/<name>.py`
+2. Define `app = typer.Typer(help="...")` and the command as either:
+   - `@app.callback(invoke_without_command=True)` for a single-action command
+   - `@app.command("sub")` entries for a grouped command
+3. Export the app from `commands/__init__.py`
+4. Add one line to `cli.py`: `app.add_typer(<name>_app, name="<name>")`
+5. Add tests and update documentation
 
 ### Plugin System (Future)
 
@@ -1531,7 +1650,7 @@ def test_audio_sample(tmp_path):
 
 # Error
 ✗ Error: Model 'invalid' not found
-  Tip: Search available models with: ttx search tts
+  Tip: Search available models with: ttsx search tts
 
 # Info
 ℹ Using GPU: NVIDIA RTX 3080
@@ -1540,9 +1659,9 @@ def test_audio_sample(tmp_path):
 ### Help Text Example
 
 ```
-ttx generate --help
+ttsx generate --help
 
-Usage: ttx generate [OPTIONS] TEXT
+Usage: ttsx generate [OPTIONS] TEXT
 
   Generate speech from text using a TTS model.
 
@@ -1558,16 +1677,16 @@ Options:
 
 Examples:
   # Basic generation
-  ttx generate "Hello world"
+  ttsx generate "Hello world"
   
   # With specific model
-  ttx generate "Hello" --model moss-tts
+  ttsx generate "Hello" --model moss-tts
   
   # With voice cloning
-  ttx generate "Hello" --voice reference.wav -o cloned.wav
+  ttsx generate "Hello" --voice reference.wav -o cloned.wav
   
   # From file
-  ttx generate - < input.txt --output speech.wav
+  ttsx generate - < input.txt --output speech.wav
 ```
 
 ## Deployment & Distribution
@@ -1576,11 +1695,11 @@ Examples:
 
 ```bash
 # From PyPI (future)
-pip install ttx
+pip install ttsx
 
 # From source (development)
-git clone https://github.com/user/ttx
-cd ttx
+git clone https://github.com/user/ttsx
+cd ttsx
 uv venv && source .venv/bin/activate
 uv pip install -e ".[dev]"
 ```
@@ -1589,7 +1708,7 @@ uv pip install -e ".[dev]"
 
 ```toml
 [project.scripts]
-ttx = "ttx.cli:main"
+ttsx = "ttsx.cli:main"
 ```
 
 ### Platform Support
@@ -1636,18 +1755,19 @@ ttx = "ttx.cli:main"
 **Fallback**: CPU with clear warning about speed
 
 ### 5. Voice Cloning Approach
-**Decision**: TBD pending model research
-**Options**:
-- Model-specific (Qwen3-CustomVoice)
-- Separate encoder model
-- Hybrid approach
+**Decision**: Store raw audio, delegate embedding extraction to TTS engine  
+**Rationale**:
+- Avoids coupling to a specific embedding format
+- Qwen3-TTS Base models accept raw `(audio, sr)` directly via `generate_voice_clone()`
+- Profiles store audio + optional transcript; engine handles the rest
+- Simpler than a separate encoder model; can be upgraded later without breaking profiles
 
 ## Future Architecture Considerations
 
 ### Server Mode
 Later, support running as a service:
 ```bash
-ttx serve --host 0.0.0.0 --port 8000
+ttsx serve --host 0.0.0.0 --port 8000
 ```
 
 ### Streaming API
@@ -1683,6 +1803,6 @@ For very large batch jobs (far future):
 
 ---
 
-**Last Updated**: 2026-02-16
-**Status**: Planning Phase
-**Next Review**: After MVP completion
+**Last Updated**: 2026-02-21  
+**Status**: Phase 2.1 Complete — Voice Cloning implemented  
+**Next Review**: After Phase 2.2 (Batch Processing)

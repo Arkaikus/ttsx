@@ -4,6 +4,7 @@ import sys
 from pathlib import Path
 from typing import Optional
 
+import typer
 from rich.console import Console
 from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn
@@ -12,50 +13,52 @@ from rich.table import Table
 from ttsx.generation.engine import get_tts_engine
 from ttsx.models.registry import ModelRegistry
 
+app = typer.Typer(help="Generate speech from text.")
 console = Console()
 
 
-def generate_command(
-    text: Optional[str] = None,
-    model_id: Optional[str] = None,
-    output: Optional[Path] = None,
-    voice: Optional[str] = None,
-    ref_audio: Optional[Path] = None,
-    ref_text: Optional[str] = None,
-    text_file: Optional[Path] = None,
+@app.callback(invoke_without_command=True)
+def generate(
+    text: Optional[str] = typer.Argument(None, help="Text to convert (use '-' for stdin)"),
+    model: Optional[str] = typer.Option(None, "--model", "-m", help="Model ID to use"),
+    output: Optional[Path] = typer.Option(None, "--output", "-o", help="Output WAV file path"),
+    voice: Optional[str] = typer.Option(None, "--voice", "-v", help="Predefined voice name"),
+    text_file: Optional[Path] = typer.Option(None, "--text-file", "-f", help="Read text from file"),
+    ref_audio: Optional[Path] = typer.Option(
+        None, "--ref-audio", help="Reference audio for voice cloning"
+    ),
+    ref_text: Optional[str] = typer.Option(
+        None, "--ref-text", help="Transcript of reference audio"
+    ),
 ) -> None:
     """Generate speech from text.
 
-    Args:
-        text: Text to convert to speech (or "-" for stdin)
-        model_id: Model ID to use (uses first installed if None)
-        output: Output WAV file path
-        voice: Predefined voice name
-        ref_audio: Reference audio for voice cloning
-        ref_text: Reference audio transcript
-        text_file: Read text from file
+    Examples:
+        ttsx generate "Hello world"
+        ttsx generate "Hello" --output hello.wav
+        ttsx generate "Hello" --voice Serena
+        ttsx generate --text-file story.txt
+        echo "Hello" | ttsx generate -
+        ttsx generate "Hello" --ref-audio voice.wav --ref-text "Reference transcript"
     """
     try:
-        # Determine text source
+        # ── Resolve text input ───────────────────────────────────────────────
         if text_file:
-            # Read from file
             if not text_file.exists():
                 console.print(f"[red]Error:[/red] File not found: {text_file}")
                 raise SystemExit(1)
             text = text_file.read_text(encoding="utf-8")
             console.print(f"[dim]Reading text from:[/dim] {text_file}")
         elif text == "-":
-            # Read from stdin
             console.print("[dim]Reading text from stdin...[/dim]")
             text = sys.stdin.read()
             if not text.strip():
                 console.print("[red]Error:[/red] No text provided via stdin")
                 raise SystemExit(1)
         elif not text:
-            console.print("[red]Error:[/red] No text provided. Use --text, --text-file, or stdin")
+            console.print("[red]Error:[/red] No text provided. Use argument, --text-file, or stdin")
             raise SystemExit(1)
 
-        # Validate voice cloning params
         if ref_audio and not ref_text:
             console.print(
                 "[yellow]Warning:[/yellow] --ref-audio provided without --ref-text. "
@@ -66,57 +69,51 @@ def generate_command(
             console.print(f"[red]Error:[/red] Reference audio not found: {ref_audio}")
             raise SystemExit(1)
 
-        # Show generation info
+        # ── Summary ─────────────────────────────────────────────────────────
         info_table = Table(show_header=False, box=None)
         info_table.add_column("Property", style="cyan")
         info_table.add_column("Value")
 
-        if model_id:
-            info_table.add_row("Model", model_id)
-        else:
-            info_table.add_row("Model", "[dim]Using first installed model[/dim]")
-
+        info_table.add_row("Model", model or "[dim]Using first installed model[/dim]")
         info_table.add_row("Text length", f"{len(text)} characters")
-
         if voice:
             info_table.add_row("Voice", voice)
         if ref_audio:
-            info_table.add_row("Voice cloning", f"{ref_audio}")
+            info_table.add_row("Voice cloning", str(ref_audio))
 
         console.print()
         console.print(info_table)
         console.print()
 
-        # Determine which model to use
+        # ── Resolve model ────────────────────────────────────────────────────
         registry = ModelRegistry()
+        model_id = model
         if model_id is None:
-            # Use first installed model
             installed = list(registry.list_models())
             if not installed:
                 console.print(
-                    "[red]Error:[/red] No models installed. Install a model first with: "
-                    "[bold]ttsx install <model-id>[/bold]"
+                    "[red]Error:[/red] No models installed. Install one first:\n"
+                    "  [bold]ttsx models install <model-id>[/bold]"
                 )
                 raise SystemExit(1)
             model_id = installed[0].model_id
             console.print(f"[dim]Using installed model: {model_id}[/dim]")
 
-        # Verify model is installed
         model_info = registry.get(model_id)
         if not model_info:
             console.print(
-                f"[red]Error:[/red] Model '{model_id}' not installed. "
-                f"Install it with: [bold]ttsx install {model_id}[/bold]"
+                f"[red]Error:[/red] Model '{model_id}' not installed.\n"
+                f"  [bold]ttsx models install {model_id}[/bold]"
             )
             raise SystemExit(1)
 
-        # Get appropriate engine for this model
         try:
             engine = get_tts_engine(model_id)
         except NotImplementedError as e:
             console.print(f"[red]Error:[/red] {e}")
             raise SystemExit(1)
 
+        # ── Generate ─────────────────────────────────────────────────────────
         with Progress(
             SpinnerColumn(),
             TextColumn("[progress.description]{task.description}"),
@@ -134,7 +131,6 @@ def generate_command(
                 ref_text=ref_text,
             )
 
-        # Success message
         console.print()
         console.print(
             Panel(
@@ -155,56 +151,8 @@ def generate_command(
     except KeyboardInterrupt:
         console.print("\n[yellow]Generation cancelled by user[/yellow]")
         raise SystemExit(130)
+    except SystemExit:
+        raise
     except Exception as e:
         console.print(f"[red]Unexpected error:[/red] {e}")
-        raise
-
-
-def voices_command(model_id: Optional[str] = None) -> None:
-    """List available predefined voices for a model.
-
-    Args:
-        model_id: Model ID to check (uses first installed if None)
-    """
-    try:
-        # Determine which model to use
-        registry = ModelRegistry()
-        if model_id is None:
-            # Use first installed model
-            installed = list(registry.list_models())
-            if not installed:
-                console.print(
-                    "[red]Error:[/red] No models installed. Install a model first with: "
-                    "[bold]ttsx install <model-id>[/bold]"
-                )
-                raise SystemExit(1)
-            model_id = installed[0].model_id
-
-        # Get appropriate engine for this model
-        try:
-            engine = get_tts_engine(model_id)
-        except NotImplementedError as e:
-            console.print(f"[red]Error:[/red] {e}")
-            raise SystemExit(1)
-
-        voices = engine.list_available_voices()
-
-        if not voices:
-            console.print("[yellow]No predefined voices available for this model[/yellow]")
-            return
-
-        console.print()
-        console.print(f"[bold]Available Voices[/bold] (Model: {model_id})")
-        console.print()
-
-        for voice in voices:
-            console.print(f"  • {voice}")
-
-        console.print()
-        console.print(
-            f"[dim]Use with: [bold]ttsx generate 'text' --voice <name>[/bold][/dim]"
-        )
-
-    except Exception as e:
-        console.print(f"[red]Error:[/red] {e}")
         raise

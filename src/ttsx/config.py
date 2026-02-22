@@ -7,7 +7,7 @@ from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
-class ttsxConfig(BaseSettings):
+class TTSXConfig(BaseSettings):
     """Main configuration for ttsx.
 
     Configuration is loaded from:
@@ -119,10 +119,10 @@ class ttsxConfig(BaseSettings):
 
 
 # Global configuration instance
-_config: Optional[ttsxConfig] = None
+_config: Optional[TTSXConfig] = None
 
 
-def get_config() -> ttsxConfig:
+def get_config() -> TTSXConfig:
     """Get the global configuration instance.
 
     Returns:
@@ -130,11 +130,11 @@ def get_config() -> ttsxConfig:
     """
     global _config
     if _config is None:
-        _config = ttsxConfig()
+        _config = TTSXConfig()
     return _config
 
 
-def set_config(config: ttsxConfig) -> None:
+def set_config(config: TTSXConfig) -> None:
     """Set the global configuration instance.
 
     Args:
