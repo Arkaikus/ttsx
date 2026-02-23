@@ -55,10 +55,10 @@ async def search(
 
     hw_req = HardwareRequirements()
 
-    if hw_req.hw_info.cuda_available and hw_req._available_vram_gb:
+    if hw_req.hw_info.cuda_available and hw_req.available_vram_gb is not None:
         hw_info = (
             f"[dim]GPU: {hw_req.hw_info.gpus[0].name} | "
-            f"VRAM: {hw_req._available_vram_gb:.1f} GB available[/dim]"
+            f"VRAM: {hw_req.available_vram_gb:.1f} GB available[/dim]"
         )
     else:
         hw_info = "[dim]CPU-only mode (no GPU detected)[/dim]"

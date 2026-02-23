@@ -115,6 +115,11 @@ class HardwareRequirements:
             if gpu.memory:
                 self._available_vram_gb = gpu.memory.available_gb
 
+    @property
+    def available_vram_gb(self) -> Optional[float]:
+        """Available VRAM in GB (first GPU), or None if CPU-only or unknown."""
+        return self._available_vram_gb
+
     def detect_precision(self, model: ModelInfo) -> Precision:
         """Detect model precision from ID and tags.
 

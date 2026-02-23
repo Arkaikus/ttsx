@@ -27,7 +27,7 @@ def _resolve_model(model_id: Optional[str], registry: ModelRegistry) -> str:
         ModelNotInstalledError: If no models are installed or specified model not found
     """
     if model_id is not None:
-        if not registry.get(model_id):
+        if not registry.is_installed(model_id):
             raise ModelNotInstalledError(model_id)
         return model_id
 

@@ -3,7 +3,7 @@
 import logging
 import shutil
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 from ttsx.config import get_config
 from ttsx.models.registry import ModelRegistry
@@ -194,7 +194,7 @@ class CacheManager:
             error_msg = "; ".join(errors)
             raise CacheError(f"Some models failed to clear: {error_msg}")
 
-    def get_cache_info(self) -> dict[str, any]:
+    def get_cache_info(self) -> dict[str, Any]:
         """Get information about the cache.
 
         Returns:

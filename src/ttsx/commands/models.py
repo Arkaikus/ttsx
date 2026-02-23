@@ -164,7 +164,7 @@ async def install(
             )
 
         size = sum(f.stat().st_size for f in model_path.rglob("*") if f.is_file())
-        CacheManager(registry=registry).registry.register(model_id, model_path, size)
+        registry.register(model_id, model_path, size)
 
         console.print()
         console.print(f"[green]✓[/green] Successfully installed [bold]{model_id}[/bold]")
@@ -293,7 +293,7 @@ def info(
             console.print(table)
 
             hw_req = HardwareRequirements()
-            if hw_req.hw_info.cuda_available and hw_req._available_vram_gb:
+            if hw_req.hw_info.cuda_available and hw_req.available_vram_gb is not None:
                 console.print()
                 hw_table = Table(
                     title="Hardware Compatibility",
@@ -307,7 +307,7 @@ def info(
 
                 hw_table.add_row(
                     "Your GPU",
-                    f"{hw_req.hw_info.gpus[0].name} ({hw_req._available_vram_gb:.1f} GB VRAM)",
+                    f"{hw_req.hw_info.gpus[0].name} ({hw_req.available_vram_gb:.1f} GB VRAM)",
                 )
 
                 status = hw_req.check_compatibility(model_info, size_bytes)

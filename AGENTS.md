@@ -853,6 +853,7 @@ def install_command(model_id: str) -> None:
 - ✅ Create custom exceptions for domain errors
 - ✅ Use dependency injection for testability
 - ✅ Follow the existing code style exactly
+- ✅ Prefer the use of built-int types instead of the `typing` library
 
 ## Testing Guidelines
 

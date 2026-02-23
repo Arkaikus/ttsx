@@ -1,13 +1,13 @@
 """Custom exceptions for ttsx."""
 
 
-class ttsxError(Exception):
+class TTSXError(Exception):
     """Base exception for all ttsx errors."""
 
     pass
 
 
-class ModelNotFoundError(ttsxError):
+class ModelNotFoundError(TTSXError):
     """Raised when a requested model is not found."""
 
     def __init__(self, model_name: str) -> None:
@@ -18,7 +18,7 @@ class ModelNotFoundError(ttsxError):
         )
 
 
-class ModelNotInstalledError(ttsxError):
+class ModelNotInstalledError(TTSXError):
     """Raised when trying to use a model that isn't installed."""
 
     def __init__(self, model_name: str) -> None:
@@ -29,7 +29,7 @@ class ModelNotInstalledError(ttsxError):
         )
 
 
-class ModelDownloadError(ttsxError):
+class ModelDownloadError(TTSXError):
     """Raised when model download fails."""
 
     def __init__(self, model_name: str, reason: str) -> None:
@@ -38,7 +38,7 @@ class ModelDownloadError(ttsxError):
         super().__init__(f"Failed to download '{model_name}': {reason}")
 
 
-class AudioGenerationError(ttsxError):
+class AudioGenerationError(TTSXError):
     """Raised when audio generation fails."""
 
     def __init__(self, reason: str) -> None:
@@ -46,7 +46,7 @@ class AudioGenerationError(ttsxError):
         super().__init__(f"Audio generation failed: {reason}")
 
 
-class VoiceCloningError(ttsxError):
+class VoiceCloningError(TTSXError):
     """Raised when voice cloning fails."""
 
     def __init__(self, reason: str) -> None:
@@ -54,7 +54,7 @@ class VoiceCloningError(ttsxError):
         super().__init__(f"Voice cloning failed: {reason}")
 
 
-class InvalidAudioFileError(ttsxError):
+class InvalidAudioFileError(TTSXError):
     """Raised when an audio file is invalid or cannot be loaded."""
 
     def __init__(self, filepath: str, reason: str) -> None:
@@ -63,21 +63,21 @@ class InvalidAudioFileError(ttsxError):
         super().__init__(f"Invalid audio file '{filepath}': {reason}")
 
 
-class ConfigurationError(ttsxError):
+class ConfigurationError(TTSXError):
     """Raised when there's a configuration problem."""
 
     def __init__(self, message: str) -> None:
         super().__init__(f"Configuration error: {message}")
 
 
-class CacheError(ttsxError):
+class CacheError(TTSXError):
     """Raised when there's a cache-related problem."""
 
     def __init__(self, message: str) -> None:
         super().__init__(f"Cache error: {message}")
 
 
-class InsufficientVRAMError(ttsxError):
+class InsufficientVRAMError(TTSXError):
     """Raised when there's not enough VRAM to load a model."""
 
     def __init__(self, required_gb: float, available_gb: float) -> None:

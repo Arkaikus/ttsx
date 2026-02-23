@@ -276,24 +276,18 @@ class ModelRegistry:
         """Unregister and optionally delete model"""
 ```
 
-**Storage**: JSON file at `~/.ttsx/models/registry.json`
+**Storage**: JSON file at `~/.ttsx/registry.json` (keyed by model ID for O(1) lookup).
 
 ```json
 {
-  "models": [
-    {
-      "id": "Qwen/Qwen3-TTS-12Hz-1.7B",
-      "path": "/home/user/.ttsx/models/qwen3-tts",
-      "installed_at": "2026-02-16T12:00:00Z",
-      "size_bytes": 1700000000,
-      "last_used": "2026-02-16T13:30:00Z",
-      "metadata": {
-        "pipeline_tag": "text-to-speech",
-        "languages": ["en", "zh"],
-        "sample_rate": 12000
-      }
-    }
-  ]
+  "Qwen/Qwen3-TTS-12Hz-1.7B": {
+    "model_id": "Qwen/Qwen3-TTS-12Hz-1.7B",
+    "path": "/home/user/.ttsx/models/Qwen--Qwen3-TTS-12Hz-1.7B-CustomVoice",
+    "installed_at": "2026-02-16T12:00:00Z",
+    "size_bytes": 1700000000,
+    "last_used": "2026-02-16T13:30:00Z",
+    "is_pinned": false
+  }
 }
 ```
 
@@ -578,9 +572,11 @@ class CacheManager:
 
 ### Hardware Module (`hardware.py`)
 
-**Current Implementation**: Detects system hardware capabilities
+**Current Implementation**: Detects system hardware capabilities.
 
 **Purpose**: Provide comprehensive hardware information to help users understand their system capabilities and choose appropriate models.
+
+**Note**: This module uses `@dataclass` for `GPUMemory`, `GPUInfo`, and `DeviceInfo` by design — they are runtime-only, non-persisted DTOs. The project standard is Pydantic for persisted or validated domain models; dataclasses are acceptable here.
 
 ```python
 from dataclasses import dataclass
@@ -1067,29 +1063,38 @@ logger = logging.getLogger("ttsx")
 
 ### Error Handling
 
-**Exception Hierarchy**:
+**Exception Hierarchy** (see `src/ttsx/utils/exceptions.py`):
 
 ```python
 class TTSXError(Exception):
-    """Base exception"""
+    """Base exception for all ttsx errors."""
 
-class ModelError(TTSXError):
-    """Model-related errors"""
+class ModelNotFoundError(TTSXError):
+    """Model doesn't exist on Hub or not found."""
 
-class ModelNotFoundError(ModelError):
-    """Model doesn't exist"""
+class ModelNotInstalledError(TTSXError):
+    """Model is not installed locally."""
 
-class ModelDownloadError(ModelError):
-    """Failed to download model"""
+class ModelDownloadError(TTSXError):
+    """Failed to download model."""
 
-class GenerationError(TTSXError):
-    """Generation failed"""
+class AudioGenerationError(TTSXError):
+    """Audio generation failed."""
 
-class AudioError(TTSXError):
-    """Audio processing error"""
+class VoiceCloningError(TTSXError):
+    """Voice cloning failed."""
 
-class ConfigError(TTSXError):
-    """Configuration error"""
+class InvalidAudioFileError(TTSXError):
+    """Invalid or unloadable audio file."""
+
+class ConfigurationError(TTSXError):
+    """Configuration error."""
+
+class CacheError(TTSXError):
+    """Cache-related error."""
+
+class InsufficientVRAMError(TTSXError):
+    """Not enough VRAM to load model."""
 ```
 
 **Error Handling Pattern**:
@@ -1193,7 +1198,7 @@ class VoiceProfile(BaseModel):
 ```
 ~/.ttsx/
 ├── config.toml              # User configuration (optional)
-├── registry.json            # Installed models database
+├── registry.json            # Installed models registry (dict keyed by model_id)
 ├── models/                  # Model files (cache_dir)
 │   ├── Qwen--Qwen3-TTS-12Hz-0.6B-CustomVoice/
 │   │   ├── config.json

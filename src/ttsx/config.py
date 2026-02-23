@@ -126,7 +126,7 @@ def get_config() -> TTSXConfig:
     """Get the global configuration instance.
 
     Returns:
-        The ttsxConfig instance.
+        The TTSXConfig instance.
     """
     global _config
     if _config is None:
