@@ -32,10 +32,7 @@ def _resolve_model(model_id: str | None, registry: ModelRegistry) -> str:
 
     installed = list(registry.list_models())
     if not installed:
-        raise ModelNotInstalledError(
-            "No models installed. Install one first:\n"
-            "  ttsx install Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice"
-        )
+        raise ModelNotInstalledError("No models installed. Install one first:\n  ttsx install Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice")
     return installed[0].model_id
 
 
@@ -65,11 +62,7 @@ def clone_with_profile(
 
     if profile is None:
         available = [p.name for p in manager.list_profiles()]
-        hint = (
-            f"Available profiles: {', '.join(available)}"
-            if available
-            else "No profiles saved yet. Add one with: ttsx voices add <name> <audio.wav>"
-        )
+        hint = f"Available profiles: {', '.join(available)}" if available else "No profiles saved yet. Add one with: ttsx voices add <name> <audio.wav>"
         raise VoiceCloningError(f"Voice profile '{profile_name}' not found. {hint}")
 
     if not profile.audio_exists:

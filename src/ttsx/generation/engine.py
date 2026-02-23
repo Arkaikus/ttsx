@@ -78,6 +78,7 @@ class TTSEngine(ABC):
         """List available predefined voices for the model."""
         return []
 
+
 class QwenTTSEngine(TTSEngine):
     """TTS engine for Qwen3-TTS models (PyTorch/Transformers)."""
 
@@ -228,9 +229,7 @@ class QwenTTSEngine(TTSEngine):
 
         except AttributeError as e:
             logger.error(f"Model API error: {e}")
-            raise RuntimeError(
-                f"Model '{model_id}' doesn't support the expected API. Error: {e}"
-            ) from e
+            raise RuntimeError(f"Model '{model_id}' doesn't support the expected API. Error: {e}") from e
         except Exception as e:
             logger.error(f"Generation failed: {e}")
             raise RuntimeError(f"Failed to generate audio: {e}") from e
@@ -269,18 +268,9 @@ def get_tts_engine(model_id: str) -> TTSEngine:
     model_id_lower = model_id.lower()
 
     # Check for Qwen3-TTS models
-    if (
-        "qwen3-tts" in model_id_lower
-        or "qwen3_tts" in model_id_lower
-        or "qwen/qwen3-tts" in model_id_lower
-    ):
+    if "qwen3-tts" in model_id_lower or "qwen3_tts" in model_id_lower or "qwen/qwen3-tts" in model_id_lower:
         logger.info(f"Detected Qwen3-TTS model: {model_id}")
         return QwenTTSEngine()
 
     # Unknown model type
-    raise NotImplementedError(
-        f"Model '{model_id}' is not yet supported.\n"
-        f"Supported model types:\n"
-        f"  - Qwen3-TTS models (Qwen/Qwen3-TTS-*)\n"
-        f"  - MLX models (mlx-community/*)\n"
-    )
+    raise NotImplementedError(f"Model '{model_id}' is not yet supported.\nSupported model types:\n  - Qwen3-TTS models (Qwen/Qwen3-TTS-*)\n  - MLX models (mlx-community/*)\n")

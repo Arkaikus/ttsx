@@ -97,10 +97,7 @@ class CacheManager:
         lru_models = self.registry.get_lru_models(exclude_pinned=True)
 
         if not lru_models:
-            raise CacheError(
-                "No models available for eviction (all pinned). "
-                "Unpin some models or increase cache size."
-            )
+            raise CacheError("No models available for eviction (all pinned). Unpin some models or increase cache size.")
 
         logger.info(f"Evicting LRU models to free {size_to_free / (1024**3):.2f} GB")
 
@@ -127,10 +124,7 @@ class CacheManager:
                 continue
 
         if freed < size_to_free:
-            raise CacheError(
-                f"Only freed {freed / (1024**3):.2f} GB, "
-                f"but needed {size_to_free / (1024**3):.2f} GB"
-            )
+            raise CacheError(f"Only freed {freed / (1024**3):.2f} GB, but needed {size_to_free / (1024**3):.2f} GB")
 
     def remove(self, model_id: str) -> None:
         """Remove a specific model from the cache.

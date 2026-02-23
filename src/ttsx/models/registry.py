@@ -43,11 +43,7 @@ class ModelRegistry:
                     path=Path(model_data["path"]),
                     installed_at=datetime.fromisoformat(model_data["installed_at"]),
                     size_bytes=model_data["size_bytes"],
-                    last_used=(
-                        datetime.fromisoformat(model_data["last_used"])
-                        if model_data.get("last_used")
-                        else None
-                    ),
+                    last_used=(datetime.fromisoformat(model_data["last_used"]) if model_data.get("last_used") else None),
                     is_pinned=model_data.get("is_pinned", False),
                 )
 

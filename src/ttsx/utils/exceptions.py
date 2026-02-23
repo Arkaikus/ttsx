@@ -12,9 +12,7 @@ class ModelNotFoundError(TTSXError):
 
     def __init__(self, model_name: str) -> None:
         self.model_name = model_name
-        super().__init__(
-            f"Model '{model_name}' not found. Search for models with: ttsx search {model_name}"
-        )
+        super().__init__(f"Model '{model_name}' not found. Search for models with: ttsx search {model_name}")
 
 
 class ModelNotInstalledError(TTSXError):
@@ -22,9 +20,7 @@ class ModelNotInstalledError(TTSXError):
 
     def __init__(self, model_name: str) -> None:
         self.model_name = model_name
-        super().__init__(
-            f"Model '{model_name}' is not installed. Install it with: ttsx install {model_name}"
-        )
+        super().__init__(f"Model '{model_name}' is not installed. Install it with: ttsx install {model_name}")
 
 
 class ModelDownloadError(TTSXError):
@@ -81,8 +77,4 @@ class InsufficientVRAMError(TTSXError):
     def __init__(self, required_gb: float, available_gb: float) -> None:
         self.required_gb = required_gb
         self.available_gb = available_gb
-        super().__init__(
-            f"Insufficient VRAM: model requires ~{required_gb:.1f}GB, "
-            f"but only {available_gb:.1f}GB available. "
-            f"Consider using a smaller model or CPU mode."
-        )
+        super().__init__(f"Insufficient VRAM: model requires ~{required_gb:.1f}GB, but only {available_gb:.1f}GB available. Consider using a smaller model or CPU mode.")

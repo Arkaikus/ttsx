@@ -24,9 +24,7 @@ def list_profiles(
         str | None,
         typer.Option("--model", "-m", help="Model to show predefined voices for"),
     ] = None,
-    predefined: Annotated[
-        bool, typer.Option("--predefined", help="Also show built-in model voices")
-    ] = False,
+    predefined: Annotated[bool, typer.Option("--predefined", help="Also show built-in model voices")] = False,
 ) -> None:
     """List saved voice profiles.
 
@@ -57,11 +55,7 @@ def list_profiles(
         table.add_column("Created")
 
         for profile in profiles:
-            audio_label = (
-                str(profile.audio_path.name)
-                if profile.audio_exists
-                else f"[red]MISSING[/red] {profile.audio_path.name}"
-            )
+            audio_label = str(profile.audio_path.name) if profile.audio_exists else f"[red]MISSING[/red] {profile.audio_path.name}"
             table.add_row(
                 profile.name,
                 audio_label,
@@ -73,14 +67,10 @@ def list_profiles(
 
         console.print(table)
         console.print()
-        console.print(
-            "[dim]Use a profile:[/dim] [bold]ttsx clone --profile <name> 'your text'[/bold]"
-        )
+        console.print("[dim]Use a profile:[/dim] [bold]ttsx clone --profile <name> 'your text'[/bold]")
     else:
         console.print("[yellow]No saved voice profiles.[/yellow]")
-        console.print(
-            "\n[dim]Add a profile with:[/dim] [bold]ttsx voices add <name> <audio.wav>[/bold]"
-        )
+        console.print("\n[dim]Add a profile with:[/dim] [bold]ttsx voices add <name> <audio.wav>[/bold]")
 
     if predefined:
         console.print()
@@ -90,9 +80,7 @@ def list_profiles(
         if model_id is None:
             installed = list(registry.list_models())
             if not installed:
-                console.print(
-                    "[yellow]No models installed – cannot show predefined voices.[/yellow]"
-                )
+                console.print("[yellow]No models installed – cannot show predefined voices.[/yellow]")
                 return
             model_id = installed[0].model_id
 
@@ -114,10 +102,7 @@ def list_profiles(
                 pred_table.add_row(f"• {v}")
             console.print(pred_table)
             console.print()
-            console.print(
-                "[dim]Use a predefined voice:[/dim] "
-                "[bold]ttsx generate 'text' --voice <name>[/bold]"
-            )
+            console.print("[dim]Use a predefined voice:[/dim] [bold]ttsx generate 'text' --voice <name>[/bold]")
 
     console.print()
 
@@ -130,16 +115,12 @@ def add_profile(
         str | None,
         typer.Option("--ref-text", "-t", help="Transcript of reference audio (recommended)"),
     ] = None,
-    description: Annotated[
-        str | None, typer.Option("--description", "-d", help="Optional description")
-    ] = None,
+    description: Annotated[str | None, typer.Option("--description", "-d", help="Optional description")] = None,
     language: Annotated[
         str | None,
         typer.Option("--language", "-l", help="Language of the voice (e.g. English)"),
     ] = None,
-    overwrite: Annotated[
-        bool, typer.Option("--overwrite", help="Replace existing profile with the same name")
-    ] = False,
+    overwrite: Annotated[bool, typer.Option("--overwrite", help="Replace existing profile with the same name")] = False,
 ) -> None:
     """Save a voice profile from a reference audio file.
 
@@ -154,10 +135,7 @@ def add_profile(
 
     suffix = audio_file.suffix.lower()
     if suffix not in SUPPORTED_FORMATS:
-        console.print(
-            f"[red]Error:[/red] Unsupported format: {suffix}\n"
-            f"Supported: {', '.join(sorted(SUPPORTED_FORMATS))}"
-        )
+        console.print(f"[red]Error:[/red] Unsupported format: {suffix}\nSupported: {', '.join(sorted(SUPPORTED_FORMATS))}")
         raise SystemExit(1)
 
     for w in check_cloning_suitability(audio_file):
@@ -176,17 +154,12 @@ def add_profile(
         info_table.add_row("Language", language)
     if description:
         info_table.add_row("Description", description)
-    info_table.add_row(
-        "Has transcript", "[green]Yes[/green]" if ref_text else "[yellow]No[/yellow]"
-    )
+    info_table.add_row("Has transcript", "[green]Yes[/green]" if ref_text else "[yellow]No[/yellow]")
     console.print(info_table)
     console.print()
 
     if not ref_text:
-        console.print(
-            "[yellow]Tip:[/yellow] Providing --ref-text significantly improves clone quality. "
-            "Without it the model runs in x-vector mode."
-        )
+        console.print("[yellow]Tip:[/yellow] Providing --ref-text significantly improves clone quality. Without it the model runs in x-vector mode.")
         console.print()
 
     try:
@@ -285,16 +258,12 @@ def profile_info(
     info_table.add_row("Description", profile.description or "[dim]not set[/dim]")
     info_table.add_row(
         "Transcript",
-        f"[green]Yes[/green] ({len(profile.ref_text)} chars)"
-        if profile.ref_text
-        else "[yellow]No (x-vector mode)[/yellow]",
+        f"[green]Yes[/green] ({len(profile.ref_text)} chars)" if profile.ref_text else "[yellow]No (x-vector mode)[/yellow]",
     )
     info_table.add_row("Created", profile.format_created())
 
     console.print()
-    console.print(
-        Panel(info_table, title=f"[bold]Voice Profile: {name}[/bold]", border_style="cyan")
-    )
+    console.print(Panel(info_table, title=f"[bold]Voice Profile: {name}[/bold]", border_style="cyan"))
 
     if profile.ref_text:
         console.print()

@@ -60,9 +60,7 @@ def get_model_size(model: ModelInfo, fetch_accurate: bool = True) -> int | None:
             all_files = api.list_repo_files(repo_id=model.id, repo_type="model")
 
             # Step 2: Filter for model weight files (these are the large ones)
-            model_files = [
-                f for f in all_files if f.endswith((".safetensors", ".bin", ".pt", ".pth", ".ckpt"))
-            ]
+            model_files = [f for f in all_files if f.endswith((".safetensors", ".bin", ".pt", ".pth", ".ckpt"))]
 
             if not model_files:
                 logger.debug(f"No model weight files found for {model.id}")

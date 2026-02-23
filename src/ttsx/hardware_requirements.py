@@ -176,9 +176,7 @@ class HardwareRequirements:
 
         # Calculate headroom
         headroom_gb = self._available_vram_gb - estimated_vram_gb
-        headroom_percent = (
-            (headroom_gb / self._available_vram_gb) * 100 if self._available_vram_gb > 0 else 0
-        )
+        headroom_percent = (headroom_gb / self._available_vram_gb) * 100 if self._available_vram_gb > 0 else 0
 
         return VRAMEstimate(
             model_size_gb=model_size_gb,

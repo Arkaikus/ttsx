@@ -21,22 +21,14 @@ console = Console()
 def generate(
     text: Annotated[str | None, typer.Argument(help="Text to convert (use '-' for stdin)")] = None,
     model: Annotated[str | None, typer.Option("--model", "-m", help="Model ID to use")] = None,
-    output: Annotated[
-        Path | None, typer.Option("--output", "-o", help="Output WAV file path")
-    ] = None,
-    voice: Annotated[
-        str | None, typer.Option("--voice", "-v", help="Predefined voice name")
-    ] = None,
-    text_file: Annotated[
-        Path | None, typer.Option("--text-file", "-f", help="Read text from file")
-    ] = None,
+    output: Annotated[Path | None, typer.Option("--output", "-o", help="Output WAV file path")] = None,
+    voice: Annotated[str | None, typer.Option("--voice", "-v", help="Predefined voice name")] = None,
+    text_file: Annotated[Path | None, typer.Option("--text-file", "-f", help="Read text from file")] = None,
     ref_audio: Annotated[
         Path | None,
         typer.Option("--ref-audio", help="Reference audio for voice cloning"),
     ] = None,
-    ref_text: Annotated[
-        str | None, typer.Option("--ref-text", help="Transcript of reference audio")
-    ] = None,
+    ref_text: Annotated[str | None, typer.Option("--ref-text", help="Transcript of reference audio")] = None,
 ) -> None:
     """Generate speech from text.
 
@@ -67,10 +59,7 @@ def generate(
             raise SystemExit(1)
 
         if ref_audio and not ref_text:
-            console.print(
-                "[yellow]Warning:[/yellow] --ref-audio provided without --ref-text. "
-                "For best results, provide transcript of reference audio."
-            )
+            console.print("[yellow]Warning:[/yellow] --ref-audio provided without --ref-text. For best results, provide transcript of reference audio.")
 
         if ref_audio and not Path(ref_audio).exists():
             console.print(f"[red]Error:[/red] Reference audio not found: {ref_audio}")
@@ -98,20 +87,14 @@ def generate(
         if model_id is None:
             installed = list(registry.list_models())
             if not installed:
-                console.print(
-                    "[red]Error:[/red] No models installed. Install one first:\n"
-                    "  [bold]ttsx models install <model-id>[/bold]"
-                )
+                console.print("[red]Error:[/red] No models installed. Install one first:\n  [bold]ttsx models install <model-id>[/bold]")
                 raise SystemExit(1)
             model_id = installed[0].model_id
             console.print(f"[dim]Using installed model: {model_id}[/dim]")
 
         model_info = registry.get(model_id)
         if not model_info:
-            console.print(
-                f"[red]Error:[/red] Model '{model_id}' not installed.\n"
-                f"  [bold]ttsx models install {model_id}[/bold]"
-            )
+            console.print(f"[red]Error:[/red] Model '{model_id}' not installed.\n  [bold]ttsx models install {model_id}[/bold]")
             raise SystemExit(1)
 
         try:
@@ -140,9 +123,7 @@ def generate(
         console.print()
         console.print(
             Panel(
-                f"[green]✓[/green] Audio generated successfully!\n\n"
-                f"[bold]{output_path}[/bold]\n\n"
-                f"[dim]Play with: ffplay {output_path}[/dim]",
+                f"[green]✓[/green] Audio generated successfully!\n\n[bold]{output_path}[/bold]\n\n[dim]Play with: ffplay {output_path}[/dim]",
                 title="Generation Complete",
                 border_style="green",
             )

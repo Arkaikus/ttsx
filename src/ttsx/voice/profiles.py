@@ -61,10 +61,7 @@ class VoiceProfileManager:
 
         try:
             data = json.loads(self.profiles_file.read_text(encoding="utf-8"))
-            return {
-                name: VoiceProfile(**{**entry, "audio_path": Path(entry["audio_path"])})
-                for name, entry in data.items()
-            }
+            return {name: VoiceProfile(**{**entry, "audio_path": Path(entry["audio_path"])}) for name, entry in data.items()}
         except (json.JSONDecodeError, KeyError, ValueError):
             return {}
 
@@ -113,11 +110,7 @@ class VoiceProfileManager:
         profiles = self._load_profiles()
 
         if name in profiles and not overwrite:
-            raise VoiceCloningError(
-                f"Voice profile '{name}' already exists. "
-                f"Use --overwrite to replace it, or remove it first:\n"
-                f"  ttsx voices remove {name}"
-            )
+            raise VoiceCloningError(f"Voice profile '{name}' already exists. Use --overwrite to replace it, or remove it first:\n  ttsx voices remove {name}")
 
         # Copy audio into managed directory with profile name
         suffix = audio_file.suffix.lower() or ".wav"

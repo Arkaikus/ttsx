@@ -84,11 +84,7 @@ def list_models() -> None:
         console.print()
         console.print(table)
         console.print()
-        console.print(
-            f"[dim]Cache:[/dim] {cache_info['total_size_gb']:.2f} GB / "
-            f"{cache_info['max_size_gb']} GB "
-            f"({cache_info['usage_percent']:.1f}% used)"
-        )
+        console.print(f"[dim]Cache:[/dim] {cache_info['total_size_gb']:.2f} GB / {cache_info['max_size_gb']} GB ({cache_info['usage_percent']:.1f}% used)")
 
     except Exception as e:
         console.print(f"[red]Error:[/red] {e}")
@@ -166,9 +162,7 @@ async def install(
                     task_ids[filename] = progress.add_task(Path(filename).name, total=total or None)
                 progress.update(task_ids[filename], completed=done, total=total or None)
 
-            model_path = await hub.download_model(
-                model_id, on_progress=on_progress, model_info=model_info
-            )
+            model_path = await hub.download_model(model_id, on_progress=on_progress, model_info=model_info)
 
         size = sum(f.stat().st_size for f in model_path.rglob("*") if f.is_file())
         registry.register(model_id, model_path, size)
@@ -286,9 +280,7 @@ def info(
             table.add_row("Likes", f"{model_info.likes:,}" if model_info.likes else "0")
             table.add_row(
                 "Last Modified",
-                model_info.last_modified.strftime("%Y-%m-%d")
-                if model_info.last_modified
-                else "Unknown",
+                model_info.last_modified.strftime("%Y-%m-%d") if model_info.last_modified else "Unknown",
             )
             table.add_row("Pipeline", model_info.pipeline_tag or "text-to-speech")
             if model_info.library_name:

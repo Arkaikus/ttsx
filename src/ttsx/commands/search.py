@@ -55,10 +55,7 @@ async def search(
     hw_req = HardwareRequirements()
 
     if hw_req.hw_info.cuda_available and hw_req.available_vram_gb is not None:
-        hw_info = (
-            f"[dim]GPU: {hw_req.hw_info.gpus[0].name} | "
-            f"VRAM: {hw_req.available_vram_gb:.1f} GB available[/dim]"
-        )
+        hw_info = f"[dim]GPU: {hw_req.hw_info.gpus[0].name} | VRAM: {hw_req.available_vram_gb:.1f} GB available[/dim]"
     else:
         hw_info = "[dim]CPU-only mode (no GPU detected)[/dim]"
 
@@ -146,13 +143,6 @@ async def search(
             live.update(new_table)
 
     console.print()
-    console.print(
-        "[dim]Legend: "
-        "[green]✓[/green]=Fits  "
-        "[yellow]⚠[/yellow]=Tight  "
-        "[red]✗[/red]=Too Large  "
-        "[cyan]ℹ[/cyan]=CPU  "
-        "[dim]?[/dim]=Unknown[/dim]"
-    )
+    console.print("[dim]Legend: [green]✓[/green]=Fits  [yellow]⚠[/yellow]=Tight  [red]✗[/red]=Too Large  [cyan]ℹ[/cyan]=CPU  [dim]?[/dim]=Unknown[/dim]")
     console.print()
     console.print("[dim]Use [bold]ttsx models install <model-id>[/bold] to install a model[/dim]")

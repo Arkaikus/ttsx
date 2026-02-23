@@ -16,12 +16,8 @@ console = Console()
 
 @app.callback(invoke_without_command=True)
 def hw(
-    json_output: Annotated[
-        bool, typer.Option("--json", help="Output hardware info as JSON")
-    ] = False,
-    verbose: Annotated[
-        bool, typer.Option("--verbose", "-v", help="Show detailed information")
-    ] = False,
+    json_output: Annotated[bool, typer.Option("--json", help="Output hardware info as JSON")] = False,
+    verbose: Annotated[bool, typer.Option("--verbose", "-v", help="Show detailed information")] = False,
 ) -> None:
     """Display hardware information and TTS capabilities.
 
@@ -93,8 +89,7 @@ def hw(
             table.add_row(
                 "",
                 "VRAM",
-                f"{gpu.memory.total_gb:.1f} GB total / "
-                f"[bold green]{gpu.memory.available_gb:.1f} GB[/bold green] available",
+                f"{gpu.memory.total_gb:.1f} GB total / [bold green]{gpu.memory.available_gb:.1f} GB[/bold green] available",
             )
             if verbose and gpu.memory.used_gb > 0:
                 table.add_row("", "VRAM Used", f"{gpu.memory.used_gb:.1f} GB")
@@ -117,8 +112,7 @@ def hw(
     table.add_row(
         "",
         "RAM",
-        f"{info.ram_total_gb:.1f} GB total / "
-        f"[bold green]{info.ram_available_gb:.1f} GB[/bold green] available",
+        f"{info.ram_total_gb:.1f} GB total / [bold green]{info.ram_available_gb:.1f} GB[/bold green] available",
     )
 
     table.add_row("Software", "PyTorch", info.pytorch_version)
@@ -139,11 +133,7 @@ def hw(
             Panel.fit(
                 f"[bold green]✓[/bold green] Your hardware can run: {recommendations[0]}\n"
                 f"[bold green]✓[/bold green] GPU acceleration available\n"
-                + (
-                    "[bold blue]ℹ[/bold blue]  Consider using FP16/quantized models for better fit"
-                    if vram_gb < 8
-                    else f"[bold blue]ℹ[/bold blue]  {recommendations[1]}"
-                ),
+                + ("[bold blue]ℹ[/bold blue]  Consider using FP16/quantized models for better fit" if vram_gb < 8 else f"[bold blue]ℹ[/bold blue]  {recommendations[1]}"),
                 title="[bold]Recommendations[/bold]",
                 border_style="green",
             )
@@ -152,8 +142,7 @@ def hw(
         console.print()
         console.print(
             Panel.fit(
-                "[bold green]✓[/bold green] Apple Silicon GPU available\n"
-                "[bold blue]ℹ[/bold blue]  MPS acceleration supported for compatible models",
+                "[bold green]✓[/bold green] Apple Silicon GPU available\n[bold blue]ℹ[/bold blue]  MPS acceleration supported for compatible models",
                 title="[bold]Recommendations[/bold]",
                 border_style="green",
             )

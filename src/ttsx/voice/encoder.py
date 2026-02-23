@@ -77,21 +77,13 @@ def check_cloning_suitability(audio_path: Path) -> list[str]:
     duration = info.get("duration", 0.0)
 
     if duration < MIN_CLONING_DURATION:
-        warnings.append(
-            f"Reference audio is very short ({duration:.1f}s). "
-            f"For best results, use at least {MIN_CLONING_DURATION:.0f}s of clean speech."
-        )
+        warnings.append(f"Reference audio is very short ({duration:.1f}s). For best results, use at least {MIN_CLONING_DURATION:.0f}s of clean speech.")
     elif duration > MAX_CLONING_DURATION:
-        warnings.append(
-            f"Reference audio is long ({duration:.1f}s). "
-            f"Models typically only use the first {MAX_CLONING_DURATION:.0f}s."
-        )
+        warnings.append(f"Reference audio is long ({duration:.1f}s). Models typically only use the first {MAX_CLONING_DURATION:.0f}s.")
 
     sr = info.get("sample_rate", 0)
     if 0 < sr < 16000:
-        warnings.append(
-            f"Low sample rate ({sr}Hz). For best quality, use audio recorded at 16kHz or higher."
-        )
+        warnings.append(f"Low sample rate ({sr}Hz). For best quality, use audio recorded at 16kHz or higher.")
 
     return warnings
 
@@ -125,9 +117,7 @@ def prepare_audio_for_cloning(
         import numpy as np
         import soundfile as sf
     except ImportError as e:
-        raise RuntimeError(
-            "soundfile is required for audio processing. Install with:\n  uv add soundfile"
-        ) from e
+        raise RuntimeError("soundfile is required for audio processing. Install with:\n  uv add soundfile") from e
 
     validate_audio(audio_path)
 
@@ -146,9 +136,7 @@ def prepare_audio_for_cloning(
         try:
             import librosa
 
-            audio = librosa.resample(
-                audio.astype(np.float32), orig_sr=sr, target_sr=target_sample_rate
-            )
+            audio = librosa.resample(audio.astype(np.float32), orig_sr=sr, target_sr=target_sample_rate)
             logger.debug("Resampled from %dHz to %dHz", sr, target_sample_rate)
             sr = target_sample_rate
         except ImportError:
