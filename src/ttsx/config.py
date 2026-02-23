@@ -1,7 +1,6 @@
 """Configuration management for ttsx."""
 
 from pathlib import Path
-from typing import Optional
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -41,21 +40,21 @@ class TTSXConfig(BaseSettings):
     )
 
     # Model settings
-    default_model: Optional[str] = Field(
+    default_model: str | None = Field(
         default=None,
         description="Default TTS model to use",
     )
-    device: Optional[str] = Field(
+    device: str | None = Field(
         default=None,
         description="Device to use (cuda, mps, cpu). Auto-detect if None.",
     )
 
     # HuggingFace settings
-    hf_token: Optional[str] = Field(
+    hf_token: str | None = Field(
         default=None,
         description="HuggingFace API token",
     )
-    hf_cache_dir: Optional[Path] = Field(
+    hf_cache_dir: Path | None = Field(
         default=None,
         description="HuggingFace cache directory. Uses cache_dir if None.",
     )
@@ -119,7 +118,7 @@ class TTSXConfig(BaseSettings):
 
 
 # Global configuration instance
-_config: Optional[TTSXConfig] = None
+_config: TTSXConfig | None = None
 
 
 def get_config() -> TTSXConfig:

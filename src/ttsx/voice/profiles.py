@@ -17,9 +17,9 @@ class VoiceProfile(BaseModel):
 
     name: str = Field(..., description="Unique profile name")
     audio_path: Path = Field(..., description="Path to stored reference audio file")
-    ref_text: Optional[str] = Field(None, description="Transcript of reference audio")
-    description: Optional[str] = Field(None, description="Optional description")
-    language: Optional[str] = Field(None, description="Language of the voice")
+    ref_text: str | None = Field(None, description="Transcript of reference audio")
+    description: str | None = Field(None, description="Optional description")
+    language: str | None = Field(None, description="Language of the voice")
     created_at: datetime = Field(default_factory=datetime.now)
 
     model_config = {"frozen": False}
@@ -82,9 +82,9 @@ class VoiceProfileManager:
         self,
         name: str,
         audio_file: Path,
-        ref_text: Optional[str] = None,
-        description: Optional[str] = None,
-        language: Optional[str] = None,
+        ref_text: str | None = None,
+        description: str | None = None,
+        language: str | None = None,
         overwrite: bool = False,
     ) -> "VoiceProfile":
         """Add a new voice profile.

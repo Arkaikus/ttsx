@@ -23,13 +23,13 @@ app = typer.Typer(
     no_args_is_help=True,
 )
 
-app.add_typer(hw_app,       name="hw")
-app.add_typer(version_app,  name="version")
-app.add_typer(search_app,   name="search")
+app.add_typer(hw_app, name="hw")
+app.add_typer(version_app, name="version")
+app.add_typer(search_app, name="search")
 app.add_typer(generate_app, name="generate")
-app.add_typer(clone_app,    name="clone")
-app.add_typer(voices_app,   name="voices")
-app.add_typer(models_app,   name="models")
+app.add_typer(clone_app, name="clone")
+app.add_typer(voices_app, name="voices")
+app.add_typer(models_app, name="models")
 
 
 @app.callback()

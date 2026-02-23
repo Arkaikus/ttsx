@@ -1,7 +1,7 @@
 """Voice profile management commands."""
 
 from pathlib import Path
-from typing import Optional
+from typing import Annotated
 
 import typer
 from rich.console import Console
@@ -20,12 +20,13 @@ console = Console()
 
 @app.command("list")
 def list_profiles(
-    model: Optional[str] = typer.Option(
-        None, "--model", "-m", help="Model to show predefined voices for"
-    ),
-    predefined: bool = typer.Option(
-        False, "--predefined", help="Also show built-in model voices"
-    ),
+    model: Annotated[
+        str | None,
+        typer.Option("--model", "-m", help="Model to show predefined voices for"),
+    ] = None,
+    predefined: Annotated[
+        bool, typer.Option("--predefined", help="Also show built-in model voices")
+    ] = False,
 ) -> None:
     """List saved voice profiles.
 
@@ -44,6 +45,9 @@ def list_profiles(
             title="[bold]Saved Voice Profiles[/bold]",
             show_header=True,
             header_style="bold cyan",
+            expand=True,
+            box=None,
+            padding=(0, 1),
         )
         table.add_column("Name", style="bold")
         table.add_column("Audio")
@@ -86,7 +90,9 @@ def list_profiles(
         if model_id is None:
             installed = list(registry.list_models())
             if not installed:
-                console.print("[yellow]No models installed – cannot show predefined voices.[/yellow]")
+                console.print(
+                    "[yellow]No models installed – cannot show predefined voices.[/yellow]"
+                )
                 return
             model_id = installed[0].model_id
 
@@ -118,20 +124,22 @@ def list_profiles(
 
 @app.command("add")
 def add_profile(
-    name: str = typer.Argument(..., help="Unique profile name"),
-    audio_file: Path = typer.Argument(..., help="Reference audio file (WAV/MP3/FLAC)"),
-    ref_text: Optional[str] = typer.Option(
-        None, "--ref-text", "-t", help="Transcript of reference audio (recommended)"
-    ),
-    description: Optional[str] = typer.Option(
-        None, "--description", "-d", help="Optional description"
-    ),
-    language: Optional[str] = typer.Option(
-        None, "--language", "-l", help="Language of the voice (e.g. English)"
-    ),
-    overwrite: bool = typer.Option(
-        False, "--overwrite", help="Replace existing profile with the same name"
-    ),
+    name: Annotated[str, typer.Argument(help="Unique profile name")],
+    audio_file: Annotated[Path, typer.Argument(help="Reference audio file (WAV/MP3/FLAC)")],
+    ref_text: Annotated[
+        str | None,
+        typer.Option("--ref-text", "-t", help="Transcript of reference audio (recommended)"),
+    ] = None,
+    description: Annotated[
+        str | None, typer.Option("--description", "-d", help="Optional description")
+    ] = None,
+    language: Annotated[
+        str | None,
+        typer.Option("--language", "-l", help="Language of the voice (e.g. English)"),
+    ] = None,
+    overwrite: Annotated[
+        bool, typer.Option("--overwrite", help="Replace existing profile with the same name")
+    ] = False,
 ) -> None:
     """Save a voice profile from a reference audio file.
 
@@ -168,7 +176,9 @@ def add_profile(
         info_table.add_row("Language", language)
     if description:
         info_table.add_row("Description", description)
-    info_table.add_row("Has transcript", "[green]Yes[/green]" if ref_text else "[yellow]No[/yellow]")
+    info_table.add_row(
+        "Has transcript", "[green]Yes[/green]" if ref_text else "[yellow]No[/yellow]"
+    )
     console.print(info_table)
     console.print()
 
@@ -191,7 +201,7 @@ def add_profile(
         )
     except VoiceCloningError as e:
         console.print(f"[red]Error:[/red] {e}")
-        raise SystemExit(1)
+        raise SystemExit(1) from e
 
     console.print(
         Panel(
@@ -207,8 +217,8 @@ def add_profile(
 
 @app.command("remove")
 def remove_profile(
-    name: str = typer.Argument(..., help="Profile name to remove"),
-    force: bool = typer.Option(False, "--force", "-f", help="Skip confirmation prompt"),
+    name: Annotated[str, typer.Argument(help="Profile name to remove")],
+    force: Annotated[bool, typer.Option("--force", "-f", help="Skip confirmation prompt")] = False,
 ) -> None:
     """Remove a saved voice profile.
 
@@ -241,7 +251,7 @@ def remove_profile(
 
 @app.command("info")
 def profile_info(
-    name: str = typer.Argument(..., help="Profile name to inspect"),
+    name: Annotated[str, typer.Argument(help="Profile name to inspect")],
 ) -> None:
     """Show detailed information about a saved voice profile.
 
@@ -255,9 +265,7 @@ def profile_info(
         console.print(f"[red]Error:[/red] Voice profile '{name}' not found.")
         raise SystemExit(1)
 
-    audio_status = (
-        "[green]Available[/green]" if profile.audio_exists else "[red]MISSING[/red]"
-    )
+    audio_status = "[green]Available[/green]" if profile.audio_exists else "[red]MISSING[/red]"
 
     info_table = Table(show_header=False, box=None, padding=(0, 2))
     info_table.add_column("Key", style="cyan", no_wrap=True)
@@ -284,7 +292,9 @@ def profile_info(
     info_table.add_row("Created", profile.format_created())
 
     console.print()
-    console.print(Panel(info_table, title=f"[bold]Voice Profile: {name}[/bold]", border_style="cyan"))
+    console.print(
+        Panel(info_table, title=f"[bold]Voice Profile: {name}[/bold]", border_style="cyan")
+    )
 
     if profile.ref_text:
         console.print()
@@ -295,7 +305,5 @@ def profile_info(
         console.print(f"  [dim]{preview}[/dim]")
 
     console.print()
-    console.print(
-        f"[dim]Clone voice:[/dim] [bold]ttsx clone --profile {name} 'your text'[/bold]"
-    )
+    console.print(f"[dim]Clone voice:[/dim] [bold]ttsx clone --profile {name} 'your text'[/bold]")
     console.print()

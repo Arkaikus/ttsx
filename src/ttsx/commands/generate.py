@@ -2,7 +2,7 @@
 
 import sys
 from pathlib import Path
-from typing import Optional
+from typing import Annotated
 
 import typer
 from rich.console import Console
@@ -19,17 +19,24 @@ console = Console()
 
 @app.callback(invoke_without_command=True)
 def generate(
-    text: Optional[str] = typer.Argument(None, help="Text to convert (use '-' for stdin)"),
-    model: Optional[str] = typer.Option(None, "--model", "-m", help="Model ID to use"),
-    output: Optional[Path] = typer.Option(None, "--output", "-o", help="Output WAV file path"),
-    voice: Optional[str] = typer.Option(None, "--voice", "-v", help="Predefined voice name"),
-    text_file: Optional[Path] = typer.Option(None, "--text-file", "-f", help="Read text from file"),
-    ref_audio: Optional[Path] = typer.Option(
-        None, "--ref-audio", help="Reference audio for voice cloning"
-    ),
-    ref_text: Optional[str] = typer.Option(
-        None, "--ref-text", help="Transcript of reference audio"
-    ),
+    text: Annotated[str | None, typer.Argument(help="Text to convert (use '-' for stdin)")] = None,
+    model: Annotated[str | None, typer.Option("--model", "-m", help="Model ID to use")] = None,
+    output: Annotated[
+        Path | None, typer.Option("--output", "-o", help="Output WAV file path")
+    ] = None,
+    voice: Annotated[
+        str | None, typer.Option("--voice", "-v", help="Predefined voice name")
+    ] = None,
+    text_file: Annotated[
+        Path | None, typer.Option("--text-file", "-f", help="Read text from file")
+    ] = None,
+    ref_audio: Annotated[
+        Path | None,
+        typer.Option("--ref-audio", help="Reference audio for voice cloning"),
+    ] = None,
+    ref_text: Annotated[
+        str | None, typer.Option("--ref-text", help="Transcript of reference audio")
+    ] = None,
 ) -> None:
     """Generate speech from text.
 
@@ -111,9 +118,8 @@ def generate(
             engine = get_tts_engine(model_id)
         except NotImplementedError as e:
             console.print(f"[red]Error:[/red] {e}")
-            raise SystemExit(1)
+            raise SystemExit(1) from e
 
-        # ── Generate ─────────────────────────────────────────────────────────
         with Progress(
             SpinnerColumn(),
             TextColumn("[progress.description]{task.description}"),
@@ -144,13 +150,13 @@ def generate(
 
     except ValueError as e:
         console.print(f"[red]Error:[/red] {e}")
-        raise SystemExit(1)
+        raise SystemExit(1) from e
     except RuntimeError as e:
         console.print(f"[red]Runtime Error:[/red] {e}")
-        raise SystemExit(1)
-    except KeyboardInterrupt:
+        raise SystemExit(1) from e
+    except KeyboardInterrupt as e:
         console.print("\n[yellow]Generation cancelled by user[/yellow]")
-        raise SystemExit(130)
+        raise SystemExit(130) from e
     except SystemExit:
         raise
     except Exception as e:

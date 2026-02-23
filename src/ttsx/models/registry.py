@@ -4,7 +4,6 @@ import json
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 from ttsx.config import get_config
 from ttsx.models.types import InstalledModel
@@ -16,7 +15,7 @@ logger = logging.getLogger(__name__)
 class ModelRegistry:
     """Registry for tracking installed TTS models."""
 
-    def __init__(self, registry_path: Optional[Path] = None) -> None:
+    def __init__(self, registry_path: Path | None = None) -> None:
         """Initialize the model registry.
 
         Args:
@@ -34,7 +33,7 @@ class ModelRegistry:
             return
 
         try:
-            with open(self.registry_path, "r") as f:
+            with open(self.registry_path) as f:
                 data = json.load(f)
 
             self.models = {}
@@ -236,6 +235,6 @@ class ModelRegistry:
             models = [m for m in models if not m.is_pinned]
 
         # Sort by last_used (None values last), then by installed_at
-        models.sort(key=lambda m: (m.last_used or m.installed_at))
+        models.sort(key=lambda m: m.last_used or m.installed_at)
 
         return models

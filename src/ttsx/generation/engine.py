@@ -3,9 +3,6 @@
 import logging
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Optional
-
-from huggingface_hub import ModelInfo
 
 from ttsx.config import get_config
 from ttsx.models.registry import ModelRegistry
@@ -15,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 class TTSEngine(ABC):
     """Abstract base class for TTS generation engines.
-    
+
     Each model type should extend this and implement the generate method.
     """
 
@@ -32,7 +29,7 @@ class TTSEngine(ABC):
         text: str,
         model_id: str,
         model_path: Path,
-        output_path: Optional[Path] = None,
+        output_path: Path | None = None,
         **kwargs,
     ) -> Path:
         """Generate speech from text.
@@ -77,6 +74,9 @@ class TTSEngine(ABC):
         output_dir = Path.cwd()
         return output_dir / filename
 
+    def list_available_voices(self) -> list[str]:
+        """List available predefined voices for the model."""
+        return []
 
 class QwenTTSEngine(TTSEngine):
     """TTS engine for Qwen3-TTS models (PyTorch/Transformers)."""
@@ -86,11 +86,11 @@ class QwenTTSEngine(TTSEngine):
         text: str,
         model_id: str,
         model_path: Path,
-        output_path: Optional[Path] = None,
-        voice: Optional[str] = None,
-        ref_audio: Optional[Path] = None,
-        ref_text: Optional[str] = None,
-        instruct: Optional[str] = None,
+        output_path: Path | None = None,
+        voice: str | None = None,
+        ref_audio: Path | None = None,
+        ref_text: str | None = None,
+        instruct: str | None = None,
         **kwargs,
     ) -> Path:
         """Generate speech using Qwen3-TTS models.
@@ -113,15 +113,12 @@ class QwenTTSEngine(TTSEngine):
             RuntimeError: If generation fails
         """
         try:
-            from qwen_tts import Qwen3TTSModel
-            import torch
-            import scipy.io.wavfile as wavfile
             import numpy as np
+            import scipy.io.wavfile as wavfile
+            import torch
+            from qwen_tts import Qwen3TTSModel
         except ImportError as e:
-            raise RuntimeError(
-                "qwen-tts not installed. Install with:\n"
-                "  uv add qwen-tts"
-            ) from e
+            raise RuntimeError("qwen-tts not installed. Install with:\n  uv add qwen-tts") from e
 
         # Generate output path if not provided
         if output_path is None:
@@ -190,6 +187,7 @@ class QwenTTSEngine(TTSEngine):
 
                 # Load reference audio
                 import soundfile as sf
+
                 ref_wav, ref_sr = sf.read(str(ref_audio))
 
                 wavs, sr = self.loaded_model.generate_voice_clone(
@@ -231,8 +229,7 @@ class QwenTTSEngine(TTSEngine):
         except AttributeError as e:
             logger.error(f"Model API error: {e}")
             raise RuntimeError(
-                f"Model '{model_id}' doesn't support the expected API. "
-                f"Error: {e}"
+                f"Model '{model_id}' doesn't support the expected API. Error: {e}"
             ) from e
         except Exception as e:
             logger.error(f"Generation failed: {e}")
@@ -257,111 +254,6 @@ class QwenTTSEngine(TTSEngine):
         ]
 
 
-class MLXTTSEngine(TTSEngine):
-    """TTS engine for MLX-optimized models (Apple Silicon only)."""
-
-    def generate(
-        self,
-        text: str,
-        model_id: str,
-        model_path: Path,
-        output_path: Optional[Path] = None,
-        voice: Optional[str] = None,
-        ref_audio: Optional[Path] = None,
-        ref_text: Optional[str] = None,
-        **kwargs,
-    ) -> Path:
-        """Generate speech using MLX models.
-
-        Args:
-            text: Text to convert
-            model_id: Model ID being used
-            model_path: Path to model directory
-            output_path: Output file path
-            voice: Predefined voice name
-            ref_audio: Reference audio for cloning
-            ref_text: Reference audio transcript
-            **kwargs: Additional parameters
-
-        Returns:
-            Path to generated audio file
-
-        Raises:
-            RuntimeError: If MLX not available or generation fails
-        """
-        try:
-            import mlx.core as mx
-            from mlx_audio.tts.generate import generate_audio
-            from mlx_audio.tts.utils import load_model
-        except ImportError as e:
-            raise RuntimeError(
-                "MLX models require Apple Silicon (ARM64 Mac). "
-                "Your system doesn't support MLX.\n\n"
-                "Please install a PyTorch-based TTS model instead:\n"
-                "  ttsx search qwen tts --compatible\n"
-                "  ttsx install Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice"
-            ) from e
-
-        # Generate output path if not provided
-        if output_path is None:
-            output_path = self._generate_output_path(text)
-
-        logger.info(f"Loading MLX model from {model_path}")
-
-        # Load model (cache it if same as last time)
-        if self.loaded_model_id != str(model_path):
-            self.loaded_model = load_model(str(model_path))
-            self.loaded_model_id = str(model_path)
-            logger.info("MLX model loaded successfully")
-
-        # Prepare generation kwargs
-        gen_kwargs = {
-            "model": self.loaded_model,
-            "text": text,
-            "file_prefix": str(output_path.parent / output_path.stem),
-        }
-
-        if voice:
-            gen_kwargs["voice"] = voice
-            logger.info(f"Using predefined voice: {voice}")
-
-        if ref_audio and ref_text:
-            gen_kwargs["ref_audio"] = str(ref_audio)
-            gen_kwargs["ref_text"] = ref_text
-            logger.info(f"Using voice cloning with reference: {ref_audio}")
-
-        # Generate audio
-        logger.info(f"Generating speech: '{text[:50]}{'...' if len(text) > 50 else ''}'")
-        result = generate_audio(**gen_kwargs)
-
-        # mlx-audio appends .wav extension
-        actual_output = Path(f"{gen_kwargs['file_prefix']}.wav")
-
-        if actual_output.exists():
-            logger.info(f"Audio generated successfully: {actual_output}")
-            return actual_output
-        else:
-            raise RuntimeError(f"Generation failed - output file not created: {actual_output}")
-
-    def list_available_voices(self) -> list[str]:
-        """List available predefined voices for MLX models.
-
-        Returns:
-            List of voice names
-        """
-        # MLX Qwen models use same voices
-        return [
-            "Chelsie",
-            "Ethan",
-            "Serena",
-            "Vivian",
-            "Ryan",
-            "Aiden",
-            "Eric",
-            "Dylan",
-        ]
-
-
 def get_tts_engine(model_id: str) -> TTSEngine:
     """Factory function to get appropriate TTS engine for a model.
 
@@ -376,13 +268,12 @@ def get_tts_engine(model_id: str) -> TTSEngine:
     """
     model_id_lower = model_id.lower()
 
-    # Check for MLX models
-    if "mlx-community" in model_id_lower or "mlx" in model_id_lower:
-        logger.info(f"Detected MLX model: {model_id}")
-        return MLXTTSEngine()
-
     # Check for Qwen3-TTS models
-    if "qwen3-tts" in model_id_lower or "qwen3_tts" in model_id_lower or "qwen/qwen3-tts" in model_id_lower:
+    if (
+        "qwen3-tts" in model_id_lower
+        or "qwen3_tts" in model_id_lower
+        or "qwen/qwen3-tts" in model_id_lower
+    ):
         logger.info(f"Detected Qwen3-TTS model: {model_id}")
         return QwenTTSEngine()
 

@@ -13,8 +13,7 @@ class ModelNotFoundError(TTSXError):
     def __init__(self, model_name: str) -> None:
         self.model_name = model_name
         super().__init__(
-            f"Model '{model_name}' not found. "
-            f"Search for models with: ttsx search {model_name}"
+            f"Model '{model_name}' not found. Search for models with: ttsx search {model_name}"
         )
 
 
@@ -24,8 +23,7 @@ class ModelNotInstalledError(TTSXError):
     def __init__(self, model_name: str) -> None:
         self.model_name = model_name
         super().__init__(
-            f"Model '{model_name}' is not installed. "
-            f"Install it with: ttsx install {model_name}"
+            f"Model '{model_name}' is not installed. Install it with: ttsx install {model_name}"
         )
 
 

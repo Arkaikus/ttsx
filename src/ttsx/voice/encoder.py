@@ -2,7 +2,6 @@
 
 import logging
 from pathlib import Path
-from typing import Optional
 
 from ttsx.utils.exceptions import InvalidAudioFileError
 
@@ -99,7 +98,7 @@ def check_cloning_suitability(audio_path: Path) -> list[str]:
 
 def prepare_audio_for_cloning(
     audio_path: Path,
-    target_sample_rate: Optional[int] = None,
+    target_sample_rate: int | None = None,
     normalize: bool = True,
 ) -> tuple:
     """Load and pre-process reference audio for voice cloning.
@@ -127,8 +126,7 @@ def prepare_audio_for_cloning(
         import soundfile as sf
     except ImportError as e:
         raise RuntimeError(
-            "soundfile is required for audio processing. Install with:\n"
-            "  uv add soundfile"
+            "soundfile is required for audio processing. Install with:\n  uv add soundfile"
         ) from e
 
     validate_audio(audio_path)

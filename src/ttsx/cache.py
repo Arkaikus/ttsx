@@ -3,7 +3,7 @@
 import logging
 import shutil
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from ttsx.config import get_config
 from ttsx.models.registry import ModelRegistry
@@ -17,9 +17,9 @@ class CacheManager:
 
     def __init__(
         self,
-        cache_dir: Optional[Path] = None,
-        max_size_gb: Optional[int] = None,
-        registry: Optional[ModelRegistry] = None,
+        cache_dir: Path | None = None,
+        max_size_gb: int | None = None,
+        registry: ModelRegistry | None = None,
     ) -> None:
         """Initialize the cache manager.
 
@@ -70,9 +70,7 @@ class CacheManager:
             return
 
         space_needed = required_bytes - available
-        logger.info(
-            f"Need to free {space_needed / (1024**3):.2f} GB of cache space"
-        )
+        logger.info(f"Need to free {space_needed / (1024**3):.2f} GB of cache space")
 
         self.evict_lru(space_needed)
 
@@ -110,9 +108,7 @@ class CacheManager:
             if freed >= size_to_free:
                 break
 
-            logger.info(
-                f"Evicting model: {model.model_id} ({model.size_gb:.2f} GB)"
-            )
+            logger.info(f"Evicting model: {model.model_id} ({model.size_gb:.2f} GB)")
 
             try:
                 # Remove model files
@@ -123,9 +119,7 @@ class CacheManager:
                 self.registry.unregister(model.model_id)
 
                 freed += model.size_bytes
-                logger.info(
-                    f"Evicted {model.model_id}, freed {freed / (1024**3):.2f} GB total"
-                )
+                logger.info(f"Evicted {model.model_id}, freed {freed / (1024**3):.2f} GB total")
 
             except Exception as e:
                 logger.error(f"Failed to evict {model.model_id}: {e}")

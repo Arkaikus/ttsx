@@ -1,18 +1,27 @@
 """Model management commands grouped under the 'models' sub-app."""
 
+from pathlib import Path
+from typing import Annotated
+
 import typer
 from rich.console import Console
-from rich.progress import BarColumn, DownloadColumn, Progress, SpinnerColumn, TextColumn, TimeRemainingColumn, TransferSpeedColumn
+from rich.progress import (
+    BarColumn,
+    DownloadColumn,
+    Progress,
+    SpinnerColumn,
+    TextColumn,
+    TimeRemainingColumn,
+    TransferSpeedColumn,
+)
 from rich.table import Table
 
-from pathlib import Path
-
-from ttsx.utils.decorators import run_async
 from ttsx.cache import CacheManager
 from ttsx.hardware_requirements import HardwareRequirements
 from ttsx.models.hub import HuggingFaceHub
 from ttsx.models.registry import ModelRegistry
 from ttsx.models.types import format_model_size, get_model_size
+from ttsx.utils.decorators import run_async
 
 app = typer.Typer(help="Manage installed TTS models.")
 console = Console()
@@ -89,7 +98,7 @@ def list_models() -> None:
 @app.command("install")
 @run_async
 async def install(
-    model_id: str = typer.Argument(..., help="Model ID to install (e.g., Qwen/Qwen3-TTS-...)"),
+    model_id: Annotated[str, typer.Argument(help="Model ID to install (e.g., Qwen/Qwen3-TTS-...)")],
 ) -> None:
     """Install a TTS model from HuggingFace Hub.
 
@@ -119,7 +128,7 @@ async def install(
         if not siblings:
             console.print(f"[red]Error:[/red] No siblings found in model info {model_id}")
             return
-        
+
         total_bytes = sum(s.size or 0 for s in siblings)
 
         summary = Table(show_header=False, box=None)
@@ -128,7 +137,7 @@ async def install(
         summary.add_row("Model", model_id)
         summary.add_row("Files", str(len(siblings)))
         if total_bytes:
-            summary.add_row("Size", f"~{total_bytes / 1024 ** 3:.2f} GB")
+            summary.add_row("Size", f"~{total_bytes / 1024**3:.2f} GB")
         console.print()
         console.print(summary)
         console.print()
@@ -154,9 +163,7 @@ async def install(
 
             def on_progress(filename: str, done: int, total: int) -> None:
                 if filename not in task_ids:
-                    task_ids[filename] = progress.add_task(
-                        Path(filename).name, total=total or None
-                    )
+                    task_ids[filename] = progress.add_task(Path(filename).name, total=total or None)
                 progress.update(task_ids[filename], completed=done, total=total or None)
 
             model_path = await hub.download_model(
@@ -169,7 +176,7 @@ async def install(
         console.print()
         console.print(f"[green]✓[/green] Successfully installed [bold]{model_id}[/bold]")
         console.print(f"[dim]Location:[/dim] {model_path}")
-        console.print(f"[dim]Size:[/dim] {size / 1024 ** 3:.2f} GB")
+        console.print(f"[dim]Size:[/dim] {size / 1024**3:.2f} GB")
 
     except Exception as e:
         console.print(f"[red]Error installing model:[/red] {e}")
@@ -178,8 +185,8 @@ async def install(
 
 @app.command("remove")
 def remove(
-    model_id: str = typer.Argument(..., help="Model ID to remove"),
-    force: bool = typer.Option(False, "--force", "-f", help="Skip confirmation"),
+    model_id: Annotated[str, typer.Argument(help="Model ID to remove")],
+    force: Annotated[bool, typer.Option("--force", "-f", help="Skip confirmation")] = False,
 ) -> None:
     """Remove an installed TTS model.
 
@@ -214,7 +221,7 @@ def remove(
 
 @app.command("info")
 def info(
-    model_id: str = typer.Argument(..., help="Model ID"),
+    model_id: Annotated[str, typer.Argument(help="Model ID")],
 ) -> None:
     """Show detailed information about a model.
 
@@ -275,9 +282,7 @@ def info(
             table.add_row("Model ID", model_info.id)
             table.add_row("Author", model_info.author or "Unknown")
             table.add_row("Size", format_model_size(size_bytes))
-            table.add_row(
-                "Downloads", f"{model_info.downloads:,}" if model_info.downloads else "0"
-            )
+            table.add_row("Downloads", f"{model_info.downloads:,}" if model_info.downloads else "0")
             table.add_row("Likes", f"{model_info.likes:,}" if model_info.likes else "0")
             table.add_row(
                 "Last Modified",
@@ -318,9 +323,7 @@ def info(
                         "Estimated VRAM",
                         f"{estimate.estimated_vram_gb:.1f} GB ({estimate.precision.value})",
                     )
-                    hw_table.add_row(
-                        "Compatibility", hw_req.format_compatibility(status, estimate)
-                    )
+                    hw_table.add_row("Compatibility", hw_req.format_compatibility(status, estimate))
 
                     if not estimate.fits:
                         over = estimate.estimated_vram_gb - estimate.available_vram_gb
@@ -336,9 +339,7 @@ def info(
                 console.print(hw_table)
 
             console.print()
-            console.print(
-                f"[dim]Install with:[/dim] [bold]ttsx models install {model_id}[/bold]"
-            )
+            console.print(f"[dim]Install with:[/dim] [bold]ttsx models install {model_id}[/bold]")
 
     except Exception as e:
         console.print(f"[red]Error:[/red] {e}")

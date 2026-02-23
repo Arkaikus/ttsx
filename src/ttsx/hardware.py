@@ -1,7 +1,6 @@
 """Hardware detection and system information."""
 
 from dataclasses import dataclass
-from typing import Optional
 
 import psutil
 import torch
@@ -36,7 +35,7 @@ class GPUInfo:
     """GPU device information."""
 
     name: str
-    compute_capability: Optional[tuple[int, int]]
+    compute_capability: tuple[int, int] | None
     memory: GPUMemory
     index: int
 
@@ -47,7 +46,7 @@ class DeviceInfo:
 
     device_type: str  # cuda, mps, cpu
     cuda_available: bool
-    cuda_version: Optional[str]
+    cuda_version: str | None
     mps_available: bool
     gpus: list[GPUInfo]
     cpu_model: str
@@ -56,7 +55,7 @@ class DeviceInfo:
     ram_total_bytes: int
     ram_available_bytes: int
     pytorch_version: str
-    pytorch_cuda_version: Optional[str]
+    pytorch_cuda_version: str | None
 
     @property
     def ram_total_gb(self) -> float:
@@ -154,8 +153,7 @@ class HardwareDetector:
             else:
                 return (
                     False,
-                    f"✗ Insufficient VRAM: need ~{required:.1f}GB, "
-                    f"have {available_vram:.1f}GB",
+                    f"✗ Insufficient VRAM: need ~{required:.1f}GB, have {available_vram:.1f}GB",
                 )
 
         # Check if it can run on CPU (RAM)

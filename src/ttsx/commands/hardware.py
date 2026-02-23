@@ -1,6 +1,7 @@
 """Hardware detection command."""
 
 import json
+from typing import Annotated
 
 import typer
 from rich.console import Console
@@ -15,8 +16,12 @@ console = Console()
 
 @app.callback(invoke_without_command=True)
 def hw(
-    json_output: bool = typer.Option(False, "--json", help="Output hardware info as JSON"),
-    verbose: bool = typer.Option(False, "--verbose", "-v", help="Show detailed information"),
+    json_output: Annotated[
+        bool, typer.Option("--json", help="Output hardware info as JSON")
+    ] = False,
+    verbose: Annotated[
+        bool, typer.Option("--verbose", "-v", help="Show detailed information")
+    ] = False,
 ) -> None:
     """Display hardware information and TTS capabilities.
 

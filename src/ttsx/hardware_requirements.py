@@ -8,7 +8,6 @@ import logging
 import re
 from dataclasses import dataclass
 from enum import Enum
-from typing import Optional
 
 from huggingface_hub.hf_api import ModelInfo
 
@@ -106,7 +105,7 @@ class HardwareRequirements:
         """Initialize with current hardware info."""
         self.hw_detector = HardwareDetector()
         self.hw_info = self.hw_detector.detect()
-        self._available_vram_gb: Optional[float] = None
+        self._available_vram_gb: float | None = None
 
         # Cache available VRAM
         if self.hw_info.cuda_available and self.hw_info.gpus:
@@ -116,7 +115,7 @@ class HardwareRequirements:
                 self._available_vram_gb = gpu.memory.available_gb
 
     @property
-    def available_vram_gb(self) -> Optional[float]:
+    def available_vram_gb(self) -> float | None:
         """Available VRAM in GB (first GPU), or None if CPU-only or unknown."""
         return self._available_vram_gb
 
@@ -144,8 +143,8 @@ class HardwareRequirements:
     def estimate_vram(
         self,
         model: ModelInfo,
-        size_bytes: Optional[int] = None,
-    ) -> Optional[VRAMEstimate]:
+        size_bytes: int | None = None,
+    ) -> VRAMEstimate | None:
         """Estimate VRAM requirements for a model.
 
         Args:
@@ -194,7 +193,7 @@ class HardwareRequirements:
     def check_compatibility(
         self,
         model: ModelInfo,
-        size_bytes: Optional[int] = None,
+        size_bytes: int | None = None,
     ) -> CompatibilityStatus:
         """Check if model is compatible with current hardware.
 
@@ -260,7 +259,7 @@ class HardwareRequirements:
     def format_compatibility(
         self,
         status: CompatibilityStatus,
-        estimate: Optional[VRAMEstimate] = None,
+        estimate: VRAMEstimate | None = None,
     ) -> str:
         """Format compatibility status for display.
 

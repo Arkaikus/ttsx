@@ -377,6 +377,30 @@ class ModelNotFoundError(TTSXError):
 - **Typer**: Modern, less code, better DX
 - **Rich**: Essential for beautiful hardware info tables
 
+**typer.Argument usage**: A CLI Argument is a positional parameter. Use `Annotated[Type, typer.Argument(...)]` for arguments. Often they are required; make them optional by giving a default. Example:
+
+```python
+from typing import Annotated
+
+@app.command()
+def main(name: Annotated[str, typer.Argument(help="Your name")] = "World"):
+    print(f"Hello {name}!")
+```
+
+**typer.Option usage**: Options are named parameters (e.g. `--output`, `--force`). Use `Annotated[Type, typer.Option(...)]` for options. Often they are optional (give a default); to make one required, use `Annotated` and omit the default. Example:
+
+```python
+@app.command()
+def register(
+    user: Annotated[str, typer.Argument()],
+    age: Annotated[int, typer.Option("--age", min=18)],
+):
+    print(f"User is {user}")
+    print(f"--age is {age}")
+```
+
+Use `typer.Argument()` for positional parameters only; use `typer.Option()` for flags and named options.
+
 ## Key Design Patterns
 
 ### 1. Repository Pattern
@@ -786,14 +810,15 @@ def install_command(model_id: str) -> None:
 
 1. Create `src/ttsx/commands/<name>.py` with:
    ```python
+   from typing import Annotated
    import typer
    app = typer.Typer(help="Short description.")
 
    # Single-action command (no subcommands):
    @app.callback(invoke_without_command=True)
    def my_command(
-       arg: str = typer.Argument(...),
-       flag: bool = typer.Option(False, "--flag"),
+       arg: Annotated[str, typer.Argument(help="...")],
+       flag: Annotated[bool, typer.Option("--flag")] = False,
    ) -> None:
        """Docstring becomes --help text. Include Examples: block."""
        ...
@@ -843,7 +868,7 @@ def install_command(model_id: str) -> None:
 - ❌ Don't add comments full of dashes, i.e `# --- section -----------....`
 
 ### What to PREFER
-- ✅ Use type hints everywhere
+- ✅ Use type hints everywhere and Use built-in types instead of the `typing` library
 - ✅ Use `pathlib.Path` for all file operations
 - ✅ Use context managers (`with` statements)
 - ✅ Use `rich` for pretty terminal output
@@ -852,8 +877,9 @@ def install_command(model_id: str) -> None:
 - ✅ Write docstrings for all public functions
 - ✅ Create custom exceptions for domain errors
 - ✅ Use dependency injection for testability
-- ✅ Follow the existing code style exactly
-- ✅ Prefer the use of built-int types instead of the `typing` library
+- ✅ Follow the existing code and improve over it documenting the improvements
+- ✅ Use commands from the `Makefile` like `format`, `lint`, `lint-fix` to keep code style consistent
+- ✅ Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
 
 ## Testing Guidelines
 

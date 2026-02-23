@@ -2,8 +2,8 @@
 
 import asyncio
 import logging
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable, Optional
 
 import httpx
 from huggingface_hub import HfApi, hf_hub_url
@@ -21,7 +21,7 @@ ProgressCallback = Callable[[str, int, int], None]  # filename, bytes_done, tota
 class HuggingFaceHub:
     """Interface to HuggingFace Hub for TTS models."""
 
-    def __init__(self, token: Optional[str] = None) -> None:
+    def __init__(self, token: str | None = None) -> None:
         """Initialize HuggingFace Hub client.
 
         Args:
@@ -33,7 +33,7 @@ class HuggingFaceHub:
 
     def search_models(
         self,
-        query: Optional[str] = None,
+        query: str | None = None,
         limit: int = 20,
     ) -> list[ModelInfo]:
         """Search for TTS models on HuggingFace Hub.
@@ -84,10 +84,10 @@ class HuggingFaceHub:
     async def download_model(
         self,
         model_id: str,
-        cache_dir: Optional[Path] = None,
-        on_progress: Optional[ProgressCallback] = None,
+        cache_dir: Path | None = None,
+        on_progress: ProgressCallback | None = None,
         max_concurrent: int = 4,
-        model_info: Optional[ModelInfo] = None,
+        model_info: ModelInfo | None = None,
     ) -> Path:
         """Download a model file-by-file with async streaming and per-file progress.
 
@@ -116,10 +116,10 @@ class HuggingFaceHub:
         if model_info is None:
             model_info = await asyncio.to_thread(self.api.model_info, model_id)
         siblings = model_info.siblings or []
-        
+
         if not siblings:
             raise ModelDownloadError(model_id, f"No siblings found in model info {model_id}")
-        
+
         files = [s.rfilename for s in sorted(siblings, key=lambda s: s.size or float("inf"))]
 
         auth_headers: dict[str, str] = {}

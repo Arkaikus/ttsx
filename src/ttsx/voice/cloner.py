@@ -2,18 +2,17 @@
 
 import logging
 from pathlib import Path
-from typing import Optional
 
 from ttsx.generation.engine import get_tts_engine
 from ttsx.models.registry import ModelRegistry
 from ttsx.utils.exceptions import ModelNotInstalledError, VoiceCloningError
 from ttsx.voice.encoder import check_cloning_suitability, validate_audio
-from ttsx.voice.profiles import VoiceProfile, VoiceProfileManager
+from ttsx.voice.profiles import VoiceProfileManager
 
 logger = logging.getLogger(__name__)
 
 
-def _resolve_model(model_id: Optional[str], registry: ModelRegistry) -> str:
+def _resolve_model(model_id: str | None, registry: ModelRegistry) -> str:
     """Resolve which installed model to use.
 
     Args:
@@ -43,8 +42,8 @@ def _resolve_model(model_id: Optional[str], registry: ModelRegistry) -> str:
 def clone_with_profile(
     text: str,
     profile_name: str,
-    model_id: Optional[str] = None,
-    output_path: Optional[Path] = None,
+    model_id: str | None = None,
+    output_path: Path | None = None,
 ) -> Path:
     """Generate speech by cloning a voice from a saved profile.
 
@@ -92,9 +91,9 @@ def clone_with_profile(
 def clone_with_audio(
     text: str,
     audio_path: Path,
-    model_id: Optional[str] = None,
-    ref_text: Optional[str] = None,
-    output_path: Optional[Path] = None,
+    model_id: str | None = None,
+    ref_text: str | None = None,
+    output_path: Path | None = None,
 ) -> tuple[Path, list[str]]:
     """Generate speech by cloning a voice from an audio file directly.
 
@@ -132,9 +131,9 @@ def clone_with_audio(
 def _run_cloning(
     text: str,
     audio_path: Path,
-    ref_text: Optional[str],
-    model_id: Optional[str],
-    output_path: Optional[Path],
+    ref_text: str | None,
+    model_id: str | None,
+    output_path: Path | None,
 ) -> Path:
     """Internal: wire up engine and call generate.
 

@@ -1,7 +1,7 @@
 """Model search command with async size fetching and hardware compatibility."""
 
 import asyncio
-from typing import Optional
+from typing import Annotated
 
 import typer
 from rich.console import Console
@@ -21,13 +21,12 @@ console = Console()
 @app.callback(invoke_without_command=True)
 @run_async
 async def search(
-    query: Optional[str] = typer.Argument(None, help="Search query"),
-    limit: int = typer.Option(20, "--limit", "-n", help="Maximum number of results"),
-    compatible: bool = typer.Option(
-        False,
-        "--compatible",
-        help="Show only models compatible with your hardware",
-    ),
+    query: Annotated[str | None, typer.Argument(help="Search query")] = None,
+    limit: Annotated[int, typer.Option("--limit", "-n", help="Maximum number of results")] = 20,
+    compatible: Annotated[
+        bool,
+        typer.Option("--compatible", help="Show only models compatible with your hardware"),
+    ] = False,
 ) -> None:
     """Search for TTS models on HuggingFace Hub.
 
