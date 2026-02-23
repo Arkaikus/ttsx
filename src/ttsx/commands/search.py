@@ -6,20 +6,21 @@ from typing import Optional
 import typer
 from rich.console import Console
 from rich.live import Live
-from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 
 from ttsx.hardware_requirements import CompatibilityStatus, HardwareRequirements
 from ttsx.models.hub import HuggingFaceHub
 from ttsx.models.types import format_model_size, get_model_size_async
+from ttsx.utils.decorators import run_async
 
 app = typer.Typer(help="Search for TTS models on HuggingFace Hub.")
 console = Console()
 
 
 @app.callback(invoke_without_command=True)
-def search(
+@run_async
+async def search(
     query: Optional[str] = typer.Argument(None, help="Search query"),
     limit: int = typer.Option(20, "--limit", "-n", help="Maximum number of results"),
     compatible: bool = typer.Option(
@@ -39,15 +40,6 @@ def search(
         ttsx search --limit 10
         ttsx search --compatible
     """
-    try:
-        asyncio.run(_search_async(query=query, limit=limit, show_compatible=compatible))
-    except Exception as e:
-        console.print(f"[red]Error:[/red] {e}")
-        raise typer.Exit(1)
-
-
-async def _search_async(query: Optional[str], limit: int, show_compatible: bool) -> None:
-    """Async implementation with live-updating sizes and compatibility."""
     with Progress(
         SpinnerColumn(),
         TextColumn("[progress.description]{task.description}"),
@@ -125,13 +117,13 @@ async def _search_async(query: Optional[str], limit: int, show_compatible: bool)
             row_data[model_index][1] = size_str
             row_data[model_index][2] = compat_str
 
-            if show_compatible and status:
+            if compatible and status:
                 if status not in [CompatibilityStatus.FITS, CompatibilityStatus.TIGHT]:
                     models_to_show.discard(model_index)
 
             filtered_count = len(models_to_show)
             title = f"Found {filtered_count} TTS Models"
-            if show_compatible:
+            if compatible:
                 title += " (compatible only)"
 
             new_table = Table(

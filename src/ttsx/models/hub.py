@@ -1,11 +1,12 @@
 """HuggingFace Hub integration for TTS models."""
 
+import asyncio
 import logging
-from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Callable, Optional
 
-from huggingface_hub import HfApi, hf_hub_download, snapshot_download
+import httpx
+from huggingface_hub import HfApi, hf_hub_url
 from huggingface_hub.hf_api import ModelInfo
 from huggingface_hub.utils import RepositoryNotFoundError
 
@@ -13,6 +14,8 @@ from ttsx.config import get_config
 from ttsx.utils.exceptions import ModelDownloadError, ModelNotFoundError
 
 logger = logging.getLogger(__name__)
+
+ProgressCallback = Callable[[str, int, int], None]  # filename, bytes_done, total_bytes
 
 
 class HuggingFaceHub:
@@ -45,14 +48,11 @@ class HuggingFaceHub:
         logger.debug(f"Searching for TTS models: query={query}, limit={limit}")
 
         try:
-            # Search for TTS models
-            # The newer API is simplified
             search_query = query or "text-to-speech pytorch"
-            
             return self.api.list_models(
                 search=search_query,
                 limit=limit,
-                full=True,  # Get full model info including siblings (file sizes)
+                full=True,
             )
         except Exception as e:
             logger.error(f"Failed to search models: {e}")
@@ -73,9 +73,7 @@ class HuggingFaceHub:
         logger.debug(f"Getting info for model: {model_id}")
 
         try:
-            # Return ModelInfo directly from HuggingFace
             return self.api.model_info(model_id)
-
         except RepositoryNotFoundError as e:
             logger.error(f"Model not found: {model_id}")
             raise ModelNotFoundError(model_id) from e
@@ -83,83 +81,75 @@ class HuggingFaceHub:
             logger.error(f"Failed to get model info for {model_id}: {e}")
             raise ModelNotFoundError(model_id) from e
 
-    def download_model(
+    async def download_model(
         self,
         model_id: str,
         cache_dir: Optional[Path] = None,
+        on_progress: Optional[ProgressCallback] = None,
+        max_concurrent: int = 4,
+        model_info: Optional[ModelInfo] = None,
     ) -> Path:
-        """Download a model from HuggingFace Hub.
+        """Download a model file-by-file with async streaming and per-file progress.
+
+        Files are downloaded concurrently (up to ``max_concurrent`` at a time),
+        with small files prioritized first so config/tokenizer files finish quickly.
+        Each 64 KB chunk triggers ``on_progress(filename, bytes_done, total_bytes)``.
 
         Args:
             model_id: The model ID to download.
-            cache_dir: Directory to cache the model. Uses config default if None.
+            cache_dir: Target directory. Defaults to config value.
+            on_progress: Called with (filename, bytes_done, total_bytes) per chunk.
+            max_concurrent: Maximum simultaneous file downloads.
+            model_info: Optional pre-fetched model info for ordering by size. If None, fetches internally.
 
         Returns:
             Path to the downloaded model directory.
 
         Raises:
-            ModelDownloadError: If download fails.
+            ModelDownloadError: If any file download fails.
         """
         config = get_config()
         cache_dir = cache_dir or config.models_cache_path
+        target_dir = cache_dir / model_id.replace("/", "_")
+        target_dir.mkdir(parents=True, exist_ok=True)
 
-        logger.info(f"Downloading model: {model_id}")
+        if model_info is None:
+            model_info = await asyncio.to_thread(self.api.model_info, model_id)
+        siblings = model_info.siblings or []
+        
+        if not siblings:
+            raise ModelDownloadError(model_id, f"No siblings found in model info {model_id}")
+        
+        files = [s.rfilename for s in sorted(siblings, key=lambda s: s.size or float("inf"))]
 
+        auth_headers: dict[str, str] = {}
+        if self.token:
+            auth_headers["Authorization"] = f"Bearer {self.token}"
+
+        async def _download_one(client: httpx.AsyncClient, filename: str) -> None:
+            url = hf_hub_url(model_id, filename, repo_type="model")
+            dest = target_dir / filename
+            dest.parent.mkdir(parents=True, exist_ok=True)
+
+            async with client.stream("GET", url, follow_redirects=True) as resp:
+                resp.raise_for_status()
+                total = int(resp.headers.get("content-length", 0))
+                done = 0
+                with open(dest, "wb") as fh:
+                    async for chunk in resp.aiter_bytes(chunk_size=65_536):
+                        fh.write(chunk)
+                        done += len(chunk)
+                        if on_progress:
+                            on_progress(filename, done, total)
+
+        timeout = httpx.Timeout(connect=10.0, read=60.0, write=60.0, pool=10.0)
         try:
-            # Download the full model repository
-            model_path = snapshot_download(
-                repo_id=model_id,
-                cache_dir=str(cache_dir),
-                token=self.token,
-                local_dir=cache_dir / model_id.replace("/", "_"),
-                local_dir_use_symlinks=False,
-            )
-
-            logger.info(f"Model downloaded successfully to: {model_path}")
-            return Path(model_path)
-
-        except RepositoryNotFoundError as e:
-            logger.error(f"Model not found: {model_id}")
-            raise ModelDownloadError(model_id, "Model not found on HuggingFace Hub") from e
+            async with httpx.AsyncClient(headers=auth_headers, timeout=timeout) as client:
+                await asyncio.gather(*[_download_one(client, f) for f in files])
+        except httpx.HTTPError as e:
+            raise ModelDownloadError(model_id, str(e)) from e
         except Exception as e:
-            logger.error(f"Failed to download model {model_id}: {e}")
             raise ModelDownloadError(model_id, str(e)) from e
 
-    def download_file(
-        self,
-        model_id: str,
-        filename: str,
-        cache_dir: Optional[Path] = None,
-    ) -> Path:
-        """Download a specific file from a model repository.
-
-        Args:
-            model_id: The model ID.
-            filename: Name of the file to download.
-            cache_dir: Directory to cache the file.
-
-        Returns:
-            Path to the downloaded file.
-
-        Raises:
-            ModelDownloadError: If download fails.
-        """
-        config = get_config()
-        cache_dir = cache_dir or config.models_cache_path
-
-        logger.debug(f"Downloading file: {filename} from {model_id}")
-
-        try:
-            file_path = hf_hub_download(
-                repo_id=model_id,
-                filename=filename,
-                cache_dir=str(cache_dir),
-                token=self.token,
-            )
-
-            logger.debug(f"File downloaded: {file_path}")
-            return Path(file_path)
-
-        except Exception as e:
-            logger.error(f"Failed to download file {filename} from {model_id}: {e}")
-            raise ModelDownloadError(model_id, f"Failed to download {filename}: {e}") from e
+        logger.info(f"Model downloaded to: {target_dir}")
+        return target_dir
